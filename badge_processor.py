@@ -44,11 +44,30 @@ def get_font(size: int):
     return ImageFont.load_default()
 
 
+def crop_square(img: Image.Image) -> Image.Image:
+    """Recorta la imagen a formato cuadrado.
+    - Portrait (h > w): toma ancho completo desde arriba
+    - Landscape (w > h): toma alto completo centrado horizontalmente
+    """
+    w, h = img.size
+    if w == h:
+        return img
+    size = min(w, h)
+    if h > w:
+        # Portrait: cortar desde arriba
+        return img.crop((0, 0, w, w))
+    else:
+        # Landscape: centrar horizontalmente
+        left = (w - h) // 2
+        return img.crop((left, 0, left + h, h))
+
+
 def add_badge(img: Image.Image, price: int, target_width: int = 800) -> Image.Image:
-    # Redimensionar manteniendo proporción
-    ratio = target_width / img.width
-    new_h = int(img.height * ratio)
-    img = img.resize((target_width, new_h), Image.LANCZOS).convert("RGBA")
+    # Recortar a cuadrado antes de procesar
+    img = crop_square(img)
+
+    # Redimensionar
+    img = img.resize((target_width, target_width), Image.LANCZOS).convert("RGBA")
 
     resale_price = math.floor(price * RESALE_RATIO)
     text = f"Revende por {format_price(resale_price)}"
