@@ -44,30 +44,18 @@ def get_font(size: int):
     return ImageFont.load_default()
 
 
-def crop_square(img: Image.Image) -> Image.Image:
-    """Recorta la imagen a formato cuadrado.
-    - Portrait (h > w): toma ancho completo desde arriba
-    - Landscape (w > h): toma alto completo centrado horizontalmente
-    """
-    w, h = img.size
-    if w == h:
-        return img
-    size = min(w, h)
-    if h > w:
-        # Portrait: cortar desde arriba
-        return img.crop((0, 0, w, w))
-    else:
-        # Landscape: centrar horizontalmente
-        left = (w - h) // 2
-        return img.crop((left, 0, left + h, h))
-
-
 def add_badge(img: Image.Image, price: int, target_width: int = 800) -> Image.Image:
-    # Recortar a cuadrado antes de procesar
-    img = crop_square(img)
+    # Redimensionar manteniendo proporción original (sin recortar)
+    ratio = target_width / img.width
+    new_h = int(img.height * ratio)
+    img = img.resize((target_width, new_h), Image.LANCZOS).convert("RGBA")
 
-    # Redimensionar
-    img = img.resize((target_width, target_width), Image.LANCZOS).convert("RGBA")
+    w, h = img.size
+    square = min(w, h)
+
+    # Calcular el área cuadrada que verá la plataforma (centrada)
+    square_top  = (h - square) // 2  # portrait: centro vertical
+    square_left = (w - square) // 2  # landscape: centro horizontal
 
     resale_price = math.floor(price * RESALE_RATIO)
     text = f"Revende por {format_price(resale_price)}"
@@ -95,9 +83,9 @@ def add_badge(img: Image.Image, price: int, target_width: int = 800) -> Image.Im
                          fill=BADGE_COLOR_BG, outline=BADGE_COLOR_BORDER, width=1)
     bd.text((pad_x, pad_y), text, font=font, fill=BADGE_COLOR_TEXT)
 
-    # Posición: esquina inferior izquierda
-    x = margin
-    y = img.height - badge_h - margin
+    # Posición: esquina inferior izquierda del área cuadrada visible
+    x = square_left + margin
+    y = square_top + square - badge_h - margin
 
     result = img.copy()
     result.alpha_composite(badge, (x, y))
