@@ -148,6 +148,7 @@ def build_meta_rows(products, badge_url_map=None):
     """Genera filas para el catálogo de Meta Ads."""
     rows = []
     seen_ids = set()
+    seen_families = set()
 
     for prod in products:
         prod_id = str(prod["id"])
@@ -166,8 +167,11 @@ def build_meta_rows(products, badge_url_map=None):
         url = build_product_url(prod)
         final_image = (badge_url_map or {}).get(prod_id, image_url)
 
+        meta_id = family_id if family_id not in seen_families else f"{family_id}_{prod_id}"
+        seen_families.add(family_id)
+
         rows.append({
-            "id": family_id,
+            "id": meta_id,
             "title": title,
             "description": get_description(prod),
             "availability": get_availability(prod),
