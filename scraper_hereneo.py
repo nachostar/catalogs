@@ -283,10 +283,6 @@ def build_rows(products):
 
         fam = prod.get("family", {}) or {}
         price = prod.get("price", 0)
-        discount = prod.get("discount")
-        sale_price = None
-        if isinstance(discount, dict) and discount.get("percentage"):
-            sale_price = round(price * (1 - discount["percentage"] / 100))
 
         url = build_product_url(prod)
         family_id = str(fam.get("id", ""))
@@ -297,7 +293,7 @@ def build_rows(products):
             "availability": get_availability(prod, url=url),
             "condition": get_condition(prod),
             "price": f"{price} CLP",
-            "sale_price": f"{sale_price} CLP" if sale_price else "",
+            "sale_price": "",
             "link": build_product_url(prod),
             "image_link": image_url,
             "additional_image_link": get_additional_images(prod),
@@ -337,10 +333,6 @@ def build_gmc_rows(products):
 
         fam = prod.get("family", {}) or {}
         price = prod.get("price", 0)
-        discount = prod.get("discount")
-        sale_price = None
-        if isinstance(discount, dict) and discount.get("percentage"):
-            sale_price = round(price * (1 - discount["percentage"] / 100))
 
         url = build_product_url(prod)
         family_id = str(fam.get("id", ""))
@@ -361,7 +353,7 @@ def build_gmc_rows(products):
             "additional_image_link": get_additional_images(prod),
             "availability": get_availability(prod, url=url),
             "price": f"{price} CLP",
-            "sale_price": f"{sale_price} CLP" if sale_price else "",
+            "sale_price": "",
             "brand": (fam.get("brand", {}) or {}).get("name", ""),
             "condition": get_condition(prod),
             "google_product_category": "",
