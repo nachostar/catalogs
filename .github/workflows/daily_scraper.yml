@@ -9,14 +9,9 @@ jobs:
   scrape:
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: write
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -31,15 +26,3 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
         run: python scraper_hereneo.py
-
-      - name: Commit CSV actualizado
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          cp hereneo_meta_catalog.csv /tmp/catalog_nuevo.csv
-          git fetch origin
-          git reset --hard origin/main
-          cp /tmp/catalog_nuevo.csv hereneo_meta_catalog.csv
-          git add hereneo_meta_catalog.csv
-          git diff --cached --quiet || git commit -m "chore: actualizar catalogo $(date +'%Y-%m-%d')"
-          git push origin main
