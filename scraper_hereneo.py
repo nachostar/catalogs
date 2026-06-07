@@ -28,6 +28,8 @@ BASE_URL = "https://www.hereneo.cl"
 OUTPUT_FILE = Path(__file__).parent / "hereneo_meta_catalog.csv"
 PAGE_SIZE = 100
 SHEET_NAME = "Catalogo"
+SHEET_NAME_GMC = "Catalogo GMC"
+OUTPUT_FILE_GMC = Path(__file__).parent / "hereneo_gmc_catalog.csv"
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -40,6 +42,43 @@ FIELDNAMES = [
     "brand", "google_product_category", "product_type",
     "color", "size", "gender", "material", "sku", "custom_number_1",
 ]
+
+FIELDNAMES_GMC = [
+    "id", "title", "description", "link", "image_link", "additional_image_link",
+    "availability", "price", "sale_price", "brand", "condition",
+    "google_product_category", "product_type", "item_group_id",
+    "color", "size", "gender", "age_group", "material",
+    "identifier_exists", "mpn",
+]
+
+GENDER_MAP = {
+    "niño": "male",
+    "hombre": "male",
+    "niña": "female",
+    "mujer": "female",
+    "unisex": "unisex",
+    "bebe": "unisex",
+    "bebé": "unisex",
+}
+
+# Detecta age_group desde el nombre del talle
+def get_age_group(prod):
+    size = (prod.get("size", {}) or {}).get("name", "").lower()
+    if any(s in size for s in ["rn", "recien", "0m", "nb", "newborn"]):
+        return "newborn"
+    if any(s in size for s in ["3m", "6m", "9m", "12m"]):
+        return "infant"
+    if any(s in size for s in ["18m", "24m", "2t", "3t", "4t", "2a", "3a", "4a"]):
+        return "toddler"
+    if any(s in size for s in ["5", "6", "7", "8", "10", "12", "14"]):
+        return "kids"
+    return "kids"  # default para esta tienda de ropa infantil
+
+
+def get_gender_gmc(prod):
+    fam = prod.get("family", {}) or {}
+    gender_raw = (fam.get("gender", {}) or {}).get("name", "").lower().strip()
+    return GENDER_MAP.get(gender_raw, "unisex")
 
 
 # ---------------------------------------------------------------------------
@@ -274,6 +313,63 @@ def build_rows(products):
 
 
 # ---------------------------------------------------------------------------
+# GMC rows
+# ---------------------------------------------------------------------------
+
+def build_gmc_rows(products):
+    rows = []
+    seen_ids = set()
+
+    for prod in products:
+        prod_id = str(prod["id"])
+        if prod_id in seen_ids:
+            continue
+        seen_ids.add(prod_id)
+
+        title = build_title(prod)
+        image_url = get_image_url(prod)
+        if not title or not image_url:
+            continue
+
+        fam = prod.get("family", {}) or {}
+        price = prod.get("price", 0)
+        discount = prod.get("discount")
+        sale_price = None
+        if isinstance(discount, dict) and discount.get("percentage"):
+            sale_price = round(price * (1 - discount["percentage"] / 100))
+
+        url = build_product_url(prod)
+        family_id = str(fam.get("id", ""))
+        mpn = (prod.get("sku", {}) or {}).get("value", prod.get("external_sku", ""))
+
+        rows.append({
+            "id": prod_id,
+            "title": title,
+            "description": get_description(prod),
+            "link": url,
+            "image_link": image_url,
+            "additional_image_link": get_additional_images(prod),
+            "availability": get_availability(prod, url=url),
+            "price": f"{price} CLP",
+            "sale_price": f"{sale_price} CLP" if sale_price else "",
+            "brand": (fam.get("brand", {}) or {}).get("name", ""),
+            "condition": get_condition(prod),
+            "google_product_category": "",
+            "product_type": (fam.get("category", {}) or {}).get("name", ""),
+            "item_group_id": family_id,
+            "color": (prod.get("color", {}) or {}).get("name", ""),
+            "size": (prod.get("size", {}) or {}).get("name", ""),
+            "gender": get_gender_gmc(prod),
+            "age_group": get_age_group(prod),
+            "material": normalize_material(fam.get("materials", "") or ""),
+            "identifier_exists": "no",
+            "mpn": mpn,
+        })
+
+    return rows
+
+
+# ---------------------------------------------------------------------------
 # Write CSV
 # ---------------------------------------------------------------------------
 
@@ -285,11 +381,19 @@ def write_csv(rows):
     print(f"CSV guardado: {OUTPUT_FILE}")
 
 
+def write_gmc_csv(rows):
+    with open(OUTPUT_FILE_GMC, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=FIELDNAMES_GMC)
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"CSV GMC guardado: {OUTPUT_FILE_GMC}")
+
+
 # ---------------------------------------------------------------------------
 # Write Google Sheets
 # ---------------------------------------------------------------------------
 
-def write_google_sheets(rows):
+def write_google_sheets(rows, sheet_name=SHEET_NAME, fieldnames=FIELDNAMES):
     sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
     spreadsheet_id = os.environ.get("SPREADSHEET_ID")
 
@@ -302,14 +406,14 @@ def write_google_sheets(rows):
     sh = gc.open_by_key(spreadsheet_id)
 
     try:
-        ws = sh.worksheet(SHEET_NAME)
+        ws = sh.worksheet(sheet_name)
     except gspread.WorksheetNotFound:
-        ws = sh.add_worksheet(title=SHEET_NAME, rows=2000, cols=len(FIELDNAMES))
+        ws = sh.add_worksheet(title=sheet_name, rows=2000, cols=len(fieldnames))
 
-    data = [FIELDNAMES] + [[row[f] for f in FIELDNAMES] for row in rows]
+    data = [fieldnames] + [[row[f] for f in fieldnames] for row in rows]
     ws.clear()
     ws.update(data, value_input_option="RAW")
-    print(f"Google Sheets actualizado: {len(rows)} filas en '{SHEET_NAME}'")
+    print(f"Google Sheets actualizado: {len(rows)} filas en '{sheet_name}'")
 
 
 # ---------------------------------------------------------------------------
@@ -323,16 +427,21 @@ def main():
     products = fetch_all_products()
     print(f"Total descargado: {len(products)} productos\n")
 
-    print("Transformando datos...")
-    rows = build_rows(products)
+    print("Transformando datos (Meta Ads)...")
+    rows_meta = build_rows(products)
+    print("Guardando CSV Meta Ads...")
+    write_csv(rows_meta)
+    print("Subiendo Meta Ads a Google Sheets...")
+    write_google_sheets(rows_meta, sheet_name=SHEET_NAME, fieldnames=FIELDNAMES)
 
-    print("Guardando CSV...")
-    write_csv(rows)
+    print("\nTransformando datos (Google Merchant Center)...")
+    rows_gmc = build_gmc_rows(products)
+    print("Guardando CSV GMC...")
+    write_gmc_csv(rows_gmc)
+    print("Subiendo GMC a Google Sheets...")
+    write_google_sheets(rows_gmc, sheet_name=SHEET_NAME_GMC, fieldnames=FIELDNAMES_GMC)
 
-    print("Subiendo a Google Sheets...")
-    write_google_sheets(rows)
-
-    print(f"\nListo: {len(rows)} productos procesados.")
+    print(f"\nListo: {len(rows_meta)} productos Meta Ads | {len(rows_gmc)} productos GMC")
 
 
 if __name__ == "__main__":
