@@ -1,0 +1,128 @@
+"""
+Scraper genérico de Meta Ads API.
+Soporta niveles: account, campaign, adset, ad, product.
+Configurable por cuenta, fechas y campos.
+"""
+
+import json
+import os
+import time
+import urllib.request
+import urllib.parse
+
+API_VERSION = "v19.0"
+BASE = f"https://graph.facebook.com/{API_VERSION}"
+
+CONVERSION_ACTIONS = [
+    "view_content",
+    "add_to_cart",
+    "purchase",
+    "omni_view_content",
+    "omni_add_to_cart",
+    "omni_purchase",
+    "offsite_conversion.fb_pixel_view_content",
+    "offsite_conversion.fb_pixel_add_to_cart",
+    "offsite_conversion.fb_pixel_purchase",
+]
+
+DEFAULT_FIELDS = [
+    "impressions",
+    "reach",
+    "clicks",
+    "ctr",
+    "spend",
+    "cpc",
+    "cpm",
+    "actions",
+    "action_values",
+    "date_start",
+    "date_stop",
+]
+
+
+def _get(endpoint, params, token):
+    params["access_token"] = token
+    url = f"{BASE}/{endpoint}?{urllib.parse.urlencode(params)}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read())
+
+
+def _fetch_insights(account_id, token, level, extra_fields=None,
+                    date_from=None, date_to=None,
+                    date_preset=None, breakdowns=None):
+    """Fetch paginado de insights de Meta Ads."""
+    fields = DEFAULT_FIELDS.copy()
+    if extra_fields:
+        fields.extend(extra_fields)
+
+    params = {
+        "level": level,
+        "fields": ",".join(fields),
+        "limit": 500,
+    }
+
+    if date_preset:
+        params["time_range"] = json.dumps({"since": date_from, "until": date_to}) if date_from else date_preset
+    elif date_from and date_to:
+        params["time_range"] = json.dumps({"since": date_from, "until": date_to})
+
+    if breakdowns:
+        params["breakdowns"] = breakdowns
+
+    all_rows = []
+    data = _get(f"act_{account_id}/insights", params, token)
+    all_rows.extend(data.get("data", []))
+
+    while data.get("paging", {}).get("next"):
+        next_url = data["paging"]["next"]
+        req = urllib.request.Request(next_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read())
+        all_rows.extend(data.get("data", []))
+        time.sleep(0.2)
+
+    return all_rows
+
+
+def fetch_by_level(account_id, token, level, date_from, date_to):
+    """Fetch de métricas para un nivel específico."""
+    extra = []
+    if level == "campaign":
+        extra = ["campaign_name", "campaign_id"]
+    elif level == "adset":
+        extra = ["campaign_name", "adset_name", "adset_id"]
+    elif level == "ad":
+        extra = ["campaign_name", "adset_name", "ad_name", "ad_id"]
+
+    print(f"  Fetching {level}...")
+    rows = _fetch_insights(account_id, token, level, extra_fields=extra,
+                           date_from=date_from, date_to=date_to)
+    print(f"  {level}: {len(rows)} registros")
+    return rows
+
+
+def fetch_by_product(account_id, token, date_from, date_to):
+    """Fetch de métricas por producto del catálogo."""
+    print(f"  Fetching product breakdown...")
+    rows = _fetch_insights(
+        account_id, token,
+        level="ad",
+        date_from=date_from,
+        date_to=date_to,
+        breakdowns="product_id",
+    )
+    print(f"  product: {len(rows)} registros")
+    return rows
+
+
+def fetch_all(account_id, token, date_from, date_to,
+              levels=("campaign", "ad", "product")):
+    """Fetch de todos los niveles solicitados."""
+    results = {}
+    for level in levels:
+        if level == "product":
+            results["product"] = fetch_by_product(account_id, token, date_from, date_to)
+        else:
+            results[level] = fetch_by_level(account_id, token, level, date_from, date_to)
+    return results
