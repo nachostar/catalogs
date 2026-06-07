@@ -27,4 +27,5 @@ jobs:
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          CHECK_AVAILABILITY_FROM_HTML: "true"
         run: python scraper_hereneo.py
