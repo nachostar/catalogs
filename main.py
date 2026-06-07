@@ -12,10 +12,10 @@ from parsers.hereneo_parser import (
 )
 from outputs import sheets, gcs
 
-SHEET_META = "Catalogo"
-SHEET_GMC  = "Catalogo GMC"
-GMC_BLOB   = os.environ.get("GCS_BLOB", "hereneo_gmc_catalog.csv")
-GMC_LOCAL  = Path(__file__).parent / "hereneo_gmc_catalog.csv"
+SHEET_META     = "Catalogo"
+GMC_BLOB       = os.environ.get("GCS_BLOB", "hereneo_gmc_catalog.csv")
+GMC_LOCAL      = Path(__file__).parent / "hereneo_gmc_catalog.csv"
+PROCESS_BADGES = os.environ.get("PROCESS_BADGES", "false").lower() == "true"
 
 
 def main():
@@ -23,9 +23,17 @@ def main():
     products = fetch_all()
     print(f"Total: {len(products)} productos\n")
 
+    badge_url_map = {}
+    if PROCESS_BADGES:
+        print("=== Badges ===")
+        from badge_processor import process_all
+        sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+        badge_url_map = process_all(products, sa_json)
+        print(f"Imágenes procesadas: {len(badge_url_map)}\n")
+
     print("=== Parser ===")
-    rows_meta = build_meta_rows(products)
-    rows_gmc  = build_gmc_rows(products)
+    rows_meta = build_meta_rows(products, badge_url_map)
+    rows_gmc  = build_gmc_rows(products, badge_url_map)
     print(f"Meta: {len(rows_meta)} filas | GMC: {len(rows_gmc)} filas\n")
 
     print("=== Outputs ===")
