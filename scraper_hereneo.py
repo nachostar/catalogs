@@ -317,6 +317,8 @@ def write_google_sheets(rows):
 # ---------------------------------------------------------------------------
 
 def main():
+    print(f"Playwright disponible: {PLAYWRIGHT_AVAILABLE}")
+    print(f"Check HTML activado: {CHECK_AVAILABILITY_FROM_HTML}")
     print("Descargando productos de Hereneo...")
     products = fetch_all_products()
     print(f"Total descargado: {len(products)} productos\n")
