@@ -28,12 +28,10 @@ jobs:
         run: python scraper_hereneo.py
 
       - name: Commit CSV actualizado
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://nachostar:${GH_TOKEN}@github.com/nachostar/catalogs.git
+          git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/nachostar/catalogs.git
           git add hereneo_meta_catalog.csv
           git diff --cached --quiet || git commit -m "chore: actualizar catalogo $(date +'%Y-%m-%d')"
           git push
