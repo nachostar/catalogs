@@ -322,6 +322,7 @@ def build_rows(products):
 def build_gmc_rows(products):
     rows = []
     seen_ids = set()
+    seen_families = set()
 
     for prod in products:
         prod_id = str(prod["id"])
@@ -345,8 +346,14 @@ def build_gmc_rows(products):
         family_id = str(fam.get("id", ""))
         mpn = (prod.get("sku", {}) or {}).get("value", prod.get("external_sku", ""))
 
+        if family_id not in seen_families:
+            gmc_id = family_id
+            seen_families.add(family_id)
+        else:
+            gmc_id = f"{family_id}_{prod_id}"
+
         rows.append({
-            "id": f"{family_id}_{prod_id}",
+            "id": gmc_id,
             "title": title,
             "description": get_description(prod),
             "link": url,
