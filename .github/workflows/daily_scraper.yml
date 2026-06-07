@@ -32,7 +32,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/nachostar/catalogs.git
-          git pull --rebase origin main
+          git fetch origin main
+          git reset --soft origin/main
           git add hereneo_meta_catalog.csv
           git diff --cached --quiet || git commit -m "chore: actualizar catalogo $(date +'%Y-%m-%d')"
-          git push
+          git push origin main
