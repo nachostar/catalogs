@@ -9,9 +9,14 @@ jobs:
   scrape:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -31,9 +36,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/nachostar/catalogs.git
-          git fetch origin main
-          git reset --soft origin/main
+          git pull --rebase origin main
           git add hereneo_meta_catalog.csv
           git diff --cached --quiet || git commit -m "chore: actualizar catalogo $(date +'%Y-%m-%d')"
           git push origin main
