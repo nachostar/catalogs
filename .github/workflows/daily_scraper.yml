@@ -36,7 +36,7 @@ jobs:
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
-          CHECK_AVAILABILITY_FROM_HTML: "true"
+          CHECK_AVAILABILITY_FROM_HTML: "false"
           GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
           GCS_BLOB: "hereneo_gmc_catalog.csv"
           PROCESS_BADGES: "true"
