@@ -4,3 +4,8 @@
 __pycache__/
 *.pyc
 credential_git
+meta_credential
+images/
+.DS_Store
+*.pem
+quetri-*.json
