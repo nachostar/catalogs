@@ -289,8 +289,9 @@ def build_rows(products):
             sale_price = round(price * (1 - discount["percentage"] / 100))
 
         url = build_product_url(prod)
+        family_id = str(fam.get("id", ""))
         rows.append({
-            "id": prod_id,
+            "id": family_id,
             "title": title,
             "description": get_description(prod),
             "availability": get_availability(prod, url=url),
