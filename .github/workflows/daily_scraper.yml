@@ -39,6 +39,7 @@ jobs:
           CHECK_AVAILABILITY_FROM_HTML: "true"
           GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
           GCS_BLOB: "hereneo_gmc_catalog.csv"
+          PROCESS_BADGES: "true"
         run: python scraper_hereneo.py
 
       - name: Run Meta metrics

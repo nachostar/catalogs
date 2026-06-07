@@ -16,6 +16,9 @@ from pathlib import Path
 
 import gspread
 from google.oauth2.service_account import Credentials
+from badge_processor import process_all as process_badge_images
+
+PROCESS_BADGES = os.environ.get("PROCESS_BADGES", "false").lower() == "true"
 from google.cloud import storage
 
 try:
@@ -266,7 +269,7 @@ def normalize_material(text):
     return text
 
 
-def build_rows(products):
+def build_rows(products, badge_url_map=None):
     rows = []
     seen_ids = set()
 
@@ -286,6 +289,7 @@ def build_rows(products):
 
         url = build_product_url(prod)
         family_id = str(fam.get("id", ""))
+        final_image = (badge_url_map or {}).get(prod_id, image_url)
         rows.append({
             "id": family_id,
             "title": title,
@@ -295,7 +299,7 @@ def build_rows(products):
             "price": f"{price} CLP",
             "sale_price": "",
             "link": build_product_url(prod),
-            "image_link": image_url,
+            "image_link": final_image,
             "additional_image_link": get_additional_images(prod),
             "brand": (fam.get("brand", {}) or {}).get("name", ""),
             "google_product_category": "",
@@ -315,7 +319,7 @@ def build_rows(products):
 # GMC rows
 # ---------------------------------------------------------------------------
 
-def build_gmc_rows(products):
+def build_gmc_rows(products, badge_url_map=None):
     rows = []
     seen_ids = set()
     seen_families = set()
@@ -337,6 +341,7 @@ def build_gmc_rows(products):
         url = build_product_url(prod)
         family_id = str(fam.get("id", ""))
         mpn = (prod.get("sku", {}) or {}).get("value", prod.get("external_sku", ""))
+        final_image = (badge_url_map or {}).get(prod_id, image_url)
 
         if family_id not in seen_families:
             gmc_id = family_id
@@ -366,6 +371,7 @@ def build_gmc_rows(products):
             "material": normalize_material(fam.get("materials", "") or ""),
             "identifier_exists": "no",
             "mpn": mpn,
+            "image_link": final_image,
         })
 
     return rows
@@ -445,15 +451,23 @@ def main():
     products = fetch_all_products()
     print(f"Total descargado: {len(products)} productos\n")
 
+    # Procesar imágenes con badge si está activado
+    badge_url_map = {}
+    if PROCESS_BADGES:
+        print("\nProcesando imágenes con badge de reventa...")
+        sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+        badge_url_map = process_badge_images(products, sa_json)
+        print(f"Badge procesado: {len(badge_url_map)} imágenes subidas a GCS\n")
+
     print("Transformando datos (Meta Ads)...")
-    rows_meta = build_rows(products)
+    rows_meta = build_rows(products, badge_url_map)
     print("Guardando CSV Meta Ads...")
     write_csv(rows_meta)
     print("Subiendo Meta Ads a Google Sheets...")
     write_google_sheets(rows_meta, sheet_name=SHEET_NAME, fieldnames=FIELDNAMES)
 
     print("\nTransformando datos (Google Merchant Center)...")
-    rows_gmc = build_gmc_rows(products)
+    rows_gmc = build_gmc_rows(products, badge_url_map)
     print("Guardando CSV GMC...")
     write_gmc_csv(rows_gmc)
     print("Subiendo GMC a Google Cloud Storage...")
