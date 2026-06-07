@@ -48,4 +48,4 @@ jobs:
           META_AD_ACCOUNT_ID: "1361105058247847"
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
-        run: python meta_metrics.py
+        run: python scripts/meta_metrics.py
