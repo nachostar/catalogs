@@ -38,4 +38,4 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add hereneo_meta_catalog.csv
           git diff --cached --quiet || git commit -m "chore: actualizar catalogo $(date +'%Y-%m-%d')"
-          git push origin HEAD:main --force-with-lease
+          git push origin HEAD:main --force
