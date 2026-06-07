@@ -126,6 +126,49 @@ def get_description(prod):
     return re.sub(r"<[^>]+>", "", desc)[:5000]
 
 
+MATERIAL_REPLACEMENTS = [
+    # Algodón y variantes con typos
+    (r'\bald[oó]d[oó]n\b', 'Algodón'),
+    (r'\balg[oó]d[oó]n\b', 'Algodón'),
+    (r'\balgd[oó]n\b', 'Algodón'),
+    (r'\bALGOD[OÓ]N\b', 'Algodón'),
+    (r'\bAlgod[oó]n\b', 'Algodón'),
+    # Orgánico — con y sin espacio antes de siguiente palabra
+    (r'[Oo]rg[aá]nico', 'Orgánico'),
+    # Poliéster
+    (r'\bpoliester\b', 'Poliéster'),
+    (r'\bPoliester\b', 'Poliéster'),
+    (r'\bPOLIESTER\b', 'Poliéster'),
+    # Poliamida
+    (r'\bpoliamida\b', 'Poliamida'),
+    # Elastano
+    (r'\belastano\b', 'Elastano'),
+    # Viscosa
+    (r'\bviscosa\b', 'Viscosa'),
+    # Acrílico
+    (r'\bacrilico\b', 'Acrílico'),
+    (r'\bAcrilico\b', 'Acrílico'),
+    # Lino
+    (r'\blino\b', 'Lino'),
+    # Lana
+    (r'\blana\b', 'Lana'),
+    # Liocel
+    (r'\bliocel\b', 'Liocel'),
+    # Poliuretano
+    (r'\bpoliuretano\b', 'Poliuretano'),
+]
+
+def normalize_material(text):
+    if not text:
+        return text
+    # Colapsar saltos de línea y espacios múltiples
+    text = re.sub(r'[\n\r]+', ' ', text)
+    text = re.sub(r' {2,}', ' ', text).strip()
+    for pattern, replacement in MATERIAL_REPLACEMENTS:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    return text
+
+
 def build_rows(products):
     rows = []
     seen_ids = set()
@@ -165,7 +208,7 @@ def build_rows(products):
             "color": (prod.get("color", {}) or {}).get("name", ""),
             "size": (prod.get("size", {}) or {}).get("name", ""),
             "gender": (fam.get("gender", {}) or {}).get("name", ""),
-            "material": fam.get("materials", "") or "",
+            "material": normalize_material(fam.get("materials", "") or ""),
             "sku": str(fam.get("id", "")),
             "custom_number_1": (prod.get("sku", {}) or {}).get("value", prod.get("external_sku", "")),
         })
