@@ -17,6 +17,12 @@ from pathlib import Path
 import gspread
 from google.oauth2.service_account import Credentials
 
+try:
+    from playwright.sync_api import sync_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+
 BASE_API = "https://hereneo-backend-5f8b4f49b88e.herokuapp.com"
 BASE_URL = "https://www.hereneo.cl"
 OUTPUT_FILE = Path(__file__).parent / "hereneo_meta_catalog.csv"
@@ -34,6 +40,42 @@ FIELDNAMES = [
     "brand", "google_product_category", "product_type",
     "color", "size", "gender", "material", "sku", "custom_number_1",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Availability checker (genérico, reutilizable para otros sitios)
+# ---------------------------------------------------------------------------
+
+# Palabras clave que indican producto agotado — agregar más según el sitio
+SOLD_OUT_KEYWORDS = ["agotado", "sold out", "out of stock", "sin stock", "no disponible"]
+
+# Configura en True si quieres verificar disponibilidad vía HTML del PDP
+# Requiere playwright (más lento, pero funciona para cualquier sitio web)
+CHECK_AVAILABILITY_FROM_HTML = os.environ.get("CHECK_AVAILABILITY_FROM_HTML", "false").lower() == "true"
+
+
+def is_sold_out_from_html(url, keywords=None, timeout_ms=15000):
+    """
+    Abre la URL con un browser headless y busca keywords de agotado en el HTML renderizado.
+    Funciona para SPAs (React, Vue, etc.) y sitios estáticos.
+    Retorna True si está agotado, False si está disponible.
+    """
+    if not PLAYWRIGHT_AVAILABLE:
+        raise RuntimeError("Playwright no instalado. Corre: pip install playwright && playwright install chromium")
+
+    if keywords is None:
+        keywords = SOLD_OUT_KEYWORDS
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+            page.wait_for_timeout(2000)  # esperar renderizado JS
+            content = page.content().lower()
+            return any(kw.lower() in content for kw in keywords)
+        finally:
+            browser.close()
 
 
 # ---------------------------------------------------------------------------
@@ -91,8 +133,19 @@ def build_product_url(prod):
     return f"{BASE_URL}/products/{family_id}/{family_slug}{query}"
 
 
-def get_availability(prod):
-    return "in stock" if prod.get("commercial_status") == "in_stock" else "out of stock"
+def get_availability(prod, url=None):
+    # Primero chequeo rápido vía API
+    api_status = "in stock" if prod.get("commercial_status") == "in_stock" else "out of stock"
+
+    # Si está habilitado, verificar también el HTML del PDP
+    if CHECK_AVAILABILITY_FROM_HTML and url:
+        try:
+            sold_out = is_sold_out_from_html(url)
+            return "out of stock" if sold_out else "in stock"
+        except Exception as e:
+            print(f"  [availability] Error verificando {url}: {e} — usando dato de API")
+
+    return api_status
 
 
 def get_condition(prod):
@@ -194,11 +247,12 @@ def build_rows(products):
         if isinstance(discount, dict) and discount.get("percentage"):
             sale_price = round(price * (1 - discount["percentage"] / 100))
 
+        url = build_product_url(prod)
         rows.append({
             "id": prod_id,
             "title": title,
             "description": get_description(prod),
-            "availability": get_availability(prod),
+            "availability": get_availability(prod, url=url),
             "condition": get_condition(prod),
             "price": f"{price} CLP",
             "sale_price": f"{sale_price} CLP" if sale_price else "",
