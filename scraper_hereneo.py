@@ -40,16 +40,26 @@ FIELDNAMES = [
 # Fetch
 # ---------------------------------------------------------------------------
 
+def fetch_page(page, retries=5):
+    url = f"{BASE_API}/v1/productfamily/all?limit={PAGE_SIZE}&page={page}"
+    for attempt in range(1, retries + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as resp:
+                return json.loads(resp.read())
+        except Exception as e:
+            wait = attempt * 10
+            print(f"  [intento {attempt}/{retries}] Error en página {page}: {e}. Reintentando en {wait}s...")
+            time.sleep(wait)
+    raise RuntimeError(f"No se pudo obtener la página {page} tras {retries} intentos.")
+
+
 def fetch_all_products():
     all_products = []
     page = 1
     total_pages = None
 
     while total_pages is None or page <= total_pages:
-        url = f"{BASE_API}/v1/productfamily/all?limit={PAGE_SIZE}&page={page}"
-        with urllib.request.urlopen(url, timeout=30) as resp:
-            data = json.loads(resp.read())
-
+        data = fetch_page(page)
         pagination = data.get("pagination", {})
         total_pages = pagination.get("totalPages", 1)
         products = data.get("products", [])
