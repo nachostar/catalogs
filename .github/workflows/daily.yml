@@ -1,0 +1,25 @@
+name: Daily Catalog
+
+on:
+  schedule:
+    - cron: "0 10 * * *"  # 07:00 Chile
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: ""
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
+          GCS_BLOB: "hereneo_gmc_catalog.csv"
+        run: python main.py
