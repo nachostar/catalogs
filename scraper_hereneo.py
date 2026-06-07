@@ -346,7 +346,7 @@ def build_gmc_rows(products):
         mpn = (prod.get("sku", {}) or {}).get("value", prod.get("external_sku", ""))
 
         rows.append({
-            "id": prod_id,
+            "id": f"{family_id}_{prod_id}",
             "title": title,
             "description": get_description(prod),
             "link": url,
