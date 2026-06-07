@@ -40,3 +40,11 @@ jobs:
           GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
           GCS_BLOB: "hereneo_gmc_catalog.csv"
         run: python scraper_hereneo.py
+
+      - name: Run Meta metrics
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          META_AD_ACCOUNT_ID: "1361105058247847"
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+        run: python meta_metrics.py
