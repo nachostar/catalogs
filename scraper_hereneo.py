@@ -439,6 +439,7 @@ def write_google_sheets(rows, sheet_name=SHEET_NAME, fieldnames=FIELDNAMES):
 # ---------------------------------------------------------------------------
 
 def main():
+    print("VERSION: 2026-06-07-v2")
     print(f"Playwright disponible: {PLAYWRIGHT_AVAILABLE}")
     print(f"Check HTML activado: {CHECK_AVAILABILITY_FROM_HTML}")
     print("Descargando productos de Hereneo...")
