@@ -19,6 +19,13 @@ jobs:
           python-version: "3.11"
           cache: ""
 
+      - name: Diagnostico
+        run: |
+          echo "=== COMMIT ==="
+          git log --oneline -3
+          echo "=== PRIMERAS LINEAS DEL SCRAPER ==="
+          head -5 scraper_hereneo.py
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
