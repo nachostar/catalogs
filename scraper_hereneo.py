@@ -16,6 +16,7 @@ from pathlib import Path
 
 import gspread
 from google.oauth2.service_account import Credentials
+from google.cloud import storage
 
 try:
     from playwright.sync_api import sync_playwright
@@ -28,8 +29,9 @@ BASE_URL = "https://www.hereneo.cl"
 OUTPUT_FILE = Path(__file__).parent / "hereneo_meta_catalog.csv"
 PAGE_SIZE = 100
 SHEET_NAME = "Catalogo"
-SHEET_NAME_GMC = "Catalogo GMC"
 OUTPUT_FILE_GMC = Path(__file__).parent / "hereneo_gmc_catalog.csv"
+GCS_BUCKET = os.environ.get("GCS_BUCKET", "")          # nombre del bucket
+GCS_BLOB = os.environ.get("GCS_BLOB", "hereneo_gmc_catalog.csv")  # path dentro del bucket
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -389,6 +391,21 @@ def write_gmc_csv(rows):
     print(f"CSV GMC guardado: {OUTPUT_FILE_GMC}")
 
 
+def upload_gmc_to_gcs():
+    sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if not sa_json or not GCS_BUCKET:
+        print("Skipping GCS: faltan GOOGLE_SERVICE_ACCOUNT_JSON o GCS_BUCKET")
+        return
+
+    creds = Credentials.from_service_account_info(json.loads(sa_json))
+    client = storage.Client(credentials=creds, project=json.loads(sa_json).get("project_id"))
+    bucket = client.bucket(GCS_BUCKET)
+    blob = bucket.blob(GCS_BLOB)
+    blob.upload_from_filename(str(OUTPUT_FILE_GMC), content_type="text/csv")
+    print(f"GMC subido a GCS: gs://{GCS_BUCKET}/{GCS_BLOB}")
+    print(f"URL pública: https://storage.googleapis.com/{GCS_BUCKET}/{GCS_BLOB}")
+
+
 # ---------------------------------------------------------------------------
 # Write Google Sheets
 # ---------------------------------------------------------------------------
@@ -438,8 +455,8 @@ def main():
     rows_gmc = build_gmc_rows(products)
     print("Guardando CSV GMC...")
     write_gmc_csv(rows_gmc)
-    print("Subiendo GMC a Google Sheets...")
-    write_google_sheets(rows_gmc, sheet_name=SHEET_NAME_GMC, fieldnames=FIELDNAMES_GMC)
+    print("Subiendo GMC a Google Cloud Storage...")
+    upload_gmc_to_gcs()
 
     print(f"\nListo: {len(rows_meta)} productos Meta Ads | {len(rows_gmc)} productos GMC")
 
