@@ -166,6 +166,9 @@ def normalize_material(text):
     text = re.sub(r' {2,}', ' ', text).strip()
     for pattern, replacement in MATERIAL_REPLACEMENTS:
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    # Si el resultado es solo "100% Algodón" (con variantes de espacios), simplificar
+    if re.fullmatch(r'100\s*%\s*Algodón', text.strip()):
+        return 'Algodón'
     return text
 
 
