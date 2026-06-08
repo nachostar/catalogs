@@ -91,30 +91,22 @@ def _fetch_insights(account_id, token, level, extra_fields=None,
     return all_rows
 
 
-def _extract_url_from_creative(creative):
-    """Extrae la URL de destino desde el objeto creative de Meta."""
+def _build_url_from_creative(creative):
+    """Construye URL de destino desde el creative."""
     if not creative:
         return ""
-    # Intentar website_url directo
-    if creative.get("website_url"):
-        return creative["website_url"]
-    # Desde object_story_spec (link ads, video ads)
-    spec = creative.get("object_story_spec", {}) or {}
-    for key in ("link_data", "video_data", "photo_data"):
-        data = spec.get(key, {}) or {}
-        if data.get("link"):
-            return data["link"]
-        cta = data.get("call_to_action", {}) or {}
-        cta_url = (cta.get("value", {}) or {}).get("link", "")
-        if cta_url:
-            return cta_url
+    # Desde effective_object_story_id → permalink de post FB/IG
+    story_id = creative.get("effective_object_story_id", "")
+    if story_id and "_" in story_id:
+        parts = story_id.split("_", 1)
+        return f"https://www.facebook.com/{parts[0]}/posts/{parts[1]}"
     return ""
 
 
 def fetch_ad_urls(account_id, token):
-    """Fetch de URLs de destino por ad_id desde los creatives."""
+    """Fetch de URLs de destino por ad_id usando effective_object_story_id."""
     params = {
-        "fields": "id,creative{website_url,object_story_spec}",
+        "fields": "id,creative{effective_object_story_id}",
         "limit": 500,
         "access_token": token,
     }
@@ -126,8 +118,7 @@ def fetch_ad_urls(account_id, token):
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read())
             for ad in data.get("data", []):
-                dest_url = _extract_url_from_creative(ad.get("creative"))
-                url_map[ad["id"]] = dest_url
+                url_map[ad["id"]] = _build_url_from_creative(ad.get("creative"))
             url = data.get("paging", {}).get("next")
             time.sleep(0.2)
         print(f"  URLs de destino: {len(url_map)} ads")
