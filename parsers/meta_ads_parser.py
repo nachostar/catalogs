@@ -33,11 +33,26 @@ def extract_purchase_value(action_values):
     return total
 
 
+def parse_product_field(raw_product_id):
+    """
+    Meta devuelve product_id como "123, Nombre del producto".
+    Retorna (id, nombre) separados.
+    """
+    if not raw_product_id:
+        return None, None
+    parts = raw_product_id.split(",", 1)
+    pid   = parts[0].strip()
+    pname = parts[1].strip() if len(parts) > 1 else pid
+    return pid, pname
+
+
 def parse_row(raw, account_id, product_id=None):
     conversions    = extract_conversions(raw.get("actions"))
     purchase_value = extract_purchase_value(raw.get("action_values"))
     spend          = float(raw.get("spend", 0))
     roas           = round(purchase_value / spend, 4) if spend > 0 else 0.0
+
+    pid, pname = parse_product_field(product_id)
 
     return {
         "date":           raw.get("date_start"),
@@ -48,7 +63,8 @@ def parse_row(raw, account_id, product_id=None):
         "adset_name":     raw.get("adset_name"),
         "ad_id":          raw.get("ad_id"),
         "ad_name":        raw.get("ad_name"),
-        "product_id":     product_id,
+        "product_id":     pid,
+        "product_name":   pname,
         "impressions":    int(raw.get("impressions", 0)),
         "reach":          int(raw.get("reach", 0)),
         "clicks":         int(raw.get("clicks", 0)),
