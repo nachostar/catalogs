@@ -100,6 +100,9 @@ def write_metrics(rows, table_name="daily_metrics", date_from=None, date_to=None
             schema=SCHEMA_DAILY_METRICS,
             write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
             source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+            schema_update_options=[
+                bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION,
+            ],
         )
 
         ndjson = "\n".join(_json.dumps(r, default=str) for r in date_rows)
