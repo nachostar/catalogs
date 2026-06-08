@@ -91,10 +91,30 @@ def _fetch_insights(account_id, token, level, extra_fields=None,
     return all_rows
 
 
+def _extract_url_from_creative(creative):
+    """Extrae la URL de destino desde el objeto creative de Meta."""
+    if not creative:
+        return ""
+    # Intentar website_url directo
+    if creative.get("website_url"):
+        return creative["website_url"]
+    # Desde object_story_spec (link ads, video ads)
+    spec = creative.get("object_story_spec", {}) or {}
+    for key in ("link_data", "video_data", "photo_data"):
+        data = spec.get(key, {}) or {}
+        if data.get("link"):
+            return data["link"]
+        cta = data.get("call_to_action", {}) or {}
+        cta_url = (cta.get("value", {}) or {}).get("link", "")
+        if cta_url:
+            return cta_url
+    return ""
+
+
 def fetch_ad_urls(account_id, token):
-    """Fetch de URLs de destino por ad_id."""
+    """Fetch de URLs de destino por ad_id desde los creatives."""
     params = {
-        "fields": "id,name,tracking_specs",
+        "fields": "id,creative{website_url,object_story_spec}",
         "limit": 500,
         "access_token": token,
     }
@@ -106,18 +126,13 @@ def fetch_ad_urls(account_id, token):
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read())
             for ad in data.get("data", []):
-                specs = ad.get("tracking_specs") or []
-                dest_url = ""
-                for spec in specs:
-                    if "fb.content_url" in spec:
-                        dest_url = spec["fb.content_url"][0] if spec["fb.content_url"] else ""
-                        break
+                dest_url = _extract_url_from_creative(ad.get("creative"))
                 url_map[ad["id"]] = dest_url
             url = data.get("paging", {}).get("next")
             time.sleep(0.2)
         print(f"  URLs de destino: {len(url_map)} ads")
     except Exception as e:
-        print(f"  [warning] No se pudieron obtener URLs de destino: {e}")
+        print(f"  [warning] No se pudieron obtener URLs: {e}")
     return url_map
 
 
