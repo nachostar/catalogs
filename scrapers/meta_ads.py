@@ -91,12 +91,42 @@ def _fetch_insights(account_id, token, level, extra_fields=None,
     return all_rows
 
 
+def fetch_ad_urls(account_id, token):
+    """Fetch de URLs de destino por ad_id desde los creatives."""
+    params = {
+        "fields": "id,creative{object_url,website_url,effective_object_story_id}",
+        "limit": 500,
+        "access_token": token,
+    }
+    url = f"{BASE}/act_{account_id}/ads?{urllib.parse.urlencode(params)}"
+    url_map = {}
+    while url:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read())
+        for ad in data.get("data", []):
+            creative = ad.get("creative", {}) or {}
+            dest_url = creative.get("website_url") or creative.get("object_url") or ""
+            if dest_url:
+                url_map[ad["id"]] = dest_url
+        url = data.get("paging", {}).get("next")
+        time.sleep(0.2)
+    print(f"  URLs de destino: {len(url_map)} ads")
+    return url_map
+
+
 def fetch_ads(account_id, token, date_from, date_to):
-    """Fetch a nivel de ad con campaign + adset incluidos."""
+    """Fetch a nivel de ad con campaign + adset incluidos + URL de destino."""
     print(f"  Fetching ads...")
     rows = _fetch_insights(account_id, token, level="ad",
                            date_from=date_from, date_to=date_to)
     print(f"  ads: {len(rows)} registros")
+
+    print(f"  Fetching URLs de destino...")
+    url_map = fetch_ad_urls(account_id, token)
+    for row in rows:
+        row["destination_url"] = url_map.get(row.get("ad_id"), "")
+
     return rows
 
 
