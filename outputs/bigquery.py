@@ -152,6 +152,39 @@ def write_catalog(products, table_name="hereneo_catalog"):
     print(f"BigQuery: {len(rows)} productos en {table_id}")
 
 
+def enrich_product_urls(date_from=None, date_to=None, metrics_table="daily_metrics", catalog_table="hereneo_catalog"):
+    """
+    UPDATE daily_metrics.product_url usando JOIN con hereneo_catalog.
+    Se ejecuta después de write_metrics.
+    """
+    sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if not sa_json:
+        print("Skipping enrich: falta GOOGLE_SERVICE_ACCOUNT_JSON")
+        return
+
+    client = get_client()
+    m = f"`{GCP_PROJECT}.{DATASET}.{metrics_table}`"
+    c = f"`{GCP_PROJECT}.{DATASET}.{catalog_table}`"
+
+    where = ""
+    if date_from and date_to:
+        where = f"AND m.date BETWEEN '{date_from}' AND '{date_to}'"
+
+    query = f"""
+        UPDATE {m} m
+        SET m.product_url = c.link
+        FROM {c} c
+        WHERE m.product_id = c.family_id
+          AND m.product_id IS NOT NULL
+          {where}
+    """
+    try:
+        client.query(query).result()
+        print(f"product_url enriquecido desde {catalog_table}")
+    except Exception as e:
+        print(f"[warning] No se pudo enriquecer product_url: {e}")
+
+
 def write_metrics(rows, table_name="daily_metrics", date_from=None, date_to=None):
     """
     Inserta filas en BigQuery usando load jobs por partición (no streaming).
