@@ -69,10 +69,11 @@ def ensure_table(client, table_name, schema):
     return table_id
 
 
-def write_metrics(rows, table_name="daily_metrics", date_str=None):
+def write_metrics(rows, table_name="daily_metrics", date_from=None, date_to=None):
     """
     Inserta filas en BigQuery.
-    Si date_str se especifica, borra esa partición antes de insertar (evita duplicados).
+    Borra el rango de fechas antes de insertar para evitar duplicados.
+    Funciona tanto para carga diaria (date_from == date_to) como masiva.
     """
     if not rows:
         print("No hay filas para insertar en BigQuery.")
@@ -82,15 +83,24 @@ def write_metrics(rows, table_name="daily_metrics", date_str=None):
     ensure_dataset(client)
     table_id = ensure_table(client, table_name, SCHEMA_DAILY_METRICS)
 
-    # Borrar la partición del día para evitar duplicados
-    if date_str:
-        partition_id = date_str.replace("-", "")
-        delete_query = f"DELETE FROM `{table_id}` WHERE date = '{date_str}'"
+    # Borrar rango de fechas para evitar duplicados
+    if date_from and date_to:
+        delete_query = f"""
+            DELETE FROM `{table_id}`
+            WHERE date BETWEEN '{date_from}' AND '{date_to}'
+        """
         client.query(delete_query).result()
-        print(f"Partición {date_str} limpiada.")
+        print(f"Rango {date_from} → {date_to} limpiado.")
 
-    errors = client.insert_rows_json(table_id, rows)
-    if errors:
-        print(f"Errores al insertar: {errors[:3]}")
-    else:
-        print(f"BigQuery: {len(rows)} filas insertadas en {table_id}")
+    # Insertar en lotes de 500 (límite de insert_rows_json)
+    batch_size = 500
+    total_inserted = 0
+    for i in range(0, len(rows), batch_size):
+        batch = rows[i:i + batch_size]
+        errors = client.insert_rows_json(table_id, batch)
+        if errors:
+            print(f"Errores en lote {i//batch_size + 1}: {errors[:2]}")
+        else:
+            total_inserted += len(batch)
+
+    print(f"BigQuery: {total_inserted} filas insertadas en {table_id}")

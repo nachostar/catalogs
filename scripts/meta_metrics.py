@@ -49,7 +49,7 @@ def main():
     print(f"Total filas: {len(rows)}")
 
     print("\n=== BigQuery ===")
-    write_metrics(rows, table_name="daily_metrics", date_str=DATE_FROM)
+    write_metrics(rows, table_name="daily_metrics", date_from=DATE_FROM, date_to=DATE_TO)
 
     print("\nListo.")
 
