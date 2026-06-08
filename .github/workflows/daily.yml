@@ -22,4 +22,5 @@ jobs:
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
           GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
           GCS_BLOB: "hereneo_gmc_catalog.csv"
+          GCP_PROJECT: "quetri"
         run: python main.py

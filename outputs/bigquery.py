@@ -13,6 +13,23 @@ from google.oauth2.service_account import Credentials
 GCP_PROJECT = os.environ.get("GCP_PROJECT", "quetri")
 DATASET     = "meta_ads"
 
+SCHEMA_HERENEO_CATALOG = [
+    bigquery.SchemaField("product_id",    "STRING",  mode="REQUIRED"),
+    bigquery.SchemaField("family_id",     "STRING"),
+    bigquery.SchemaField("title",         "STRING"),
+    bigquery.SchemaField("brand",         "STRING"),
+    bigquery.SchemaField("category",      "STRING"),
+    bigquery.SchemaField("color",         "STRING"),
+    bigquery.SchemaField("size",          "STRING"),
+    bigquery.SchemaField("price",         "FLOAT"),
+    bigquery.SchemaField("availability",  "STRING"),
+    bigquery.SchemaField("condition",     "STRING"),
+    bigquery.SchemaField("link",          "STRING"),
+    bigquery.SchemaField("image_link",    "STRING"),
+    bigquery.SchemaField("sku",           "STRING"),
+    bigquery.SchemaField("updated_at",    "TIMESTAMP"),
+]
+
 SCHEMA_DAILY_METRICS = [
     bigquery.SchemaField("date",            "DATE",    mode="REQUIRED"),
     bigquery.SchemaField("account_id",      "STRING",  mode="REQUIRED"),
@@ -68,6 +85,71 @@ def ensure_table(client, table_name, schema):
     )
     client.create_table(table, exists_ok=True)
     return table_id
+
+
+def write_catalog(products, table_name="hereneo_catalog"):
+    """
+    Guarda el catálogo completo de productos en BigQuery.
+    Reemplaza la tabla completa en cada carga (WRITE_TRUNCATE).
+    """
+    import json as _json
+    import io
+    from datetime import datetime, timezone
+
+    if not products:
+        print("No hay productos para insertar.")
+        return
+
+    sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if not sa_json:
+        print("Skipping BQ catalog: falta GOOGLE_SERVICE_ACCOUNT_JSON")
+        return
+
+    client = get_client()
+    ensure_dataset(client)
+    table_id = f"{GCP_PROJECT}.{DATASET}.{table_name}"
+    table = bigquery.Table(table_id, schema=SCHEMA_HERENEO_CATALOG)
+    client.create_table(table, exists_ok=True)
+
+    now = datetime.now(timezone.utc).isoformat()
+    rows = []
+    for p in products:
+        fam = p.get("family", {}) or {}
+        brand = (fam.get("brand", {}) or {}).get("name", "")
+        category = (fam.get("category", {}) or {}).get("name", "")
+        family_id = str(fam.get("id", ""))
+        price = p.get("price", 0)
+
+        rows.append({
+            "product_id":   str(p["id"]),
+            "family_id":    family_id,
+            "title":        f"{brand} - {fam.get('name', '')}".strip(" -"),
+            "brand":        brand,
+            "category":     category,
+            "color":        (p.get("color", {}) or {}).get("name", ""),
+            "size":         (p.get("size", {}) or {}).get("name", ""),
+            "price":        float(price),
+            "availability": p.get("commercial_status", ""),
+            "condition":    (p.get("product_subfamily", {}) or {}).get("condition", "New"),
+            "link":         f"https://www.hereneo.cl/products/{family_id}/{fam.get('slug', family_id)}",
+            "image_link":   (p.get("images", [{}]) or [{}])[0].get("url", "") if p.get("images") else "",
+            "sku":          family_id,
+            "updated_at":   now,
+        })
+
+    job_config = bigquery.LoadJobConfig(
+        schema=SCHEMA_HERENEO_CATALOG,
+        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+        source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+    )
+    ndjson = "\n".join(_json.dumps(r, default=str) for r in rows)
+    job = client.load_table_from_file(
+        io.BytesIO(ndjson.encode()),
+        table_id,
+        job_config=job_config,
+    )
+    job.result()
+    print(f"BigQuery: {len(rows)} productos en {table_id}")
 
 
 def write_metrics(rows, table_name="daily_metrics", date_from=None, date_to=None):

@@ -11,6 +11,7 @@ from parsers.hereneo_parser import (
     FIELDNAMES_META, FIELDNAMES_GMC,
 )
 from outputs import sheets, gcs
+from outputs.bigquery import write_catalog
 
 SHEET_META     = "Catalogo"
 GMC_BLOB       = os.environ.get("GCS_BLOB", "hereneo_gmc_catalog.csv")
@@ -39,6 +40,7 @@ def main():
     print("=== Outputs ===")
     sheets.write(rows_meta, SHEET_META, FIELDNAMES_META)
     gcs.upload_csv(rows_gmc, FIELDNAMES_GMC, GMC_BLOB, GMC_LOCAL)
+    write_catalog(products)
 
     print("\nListo.")
 
