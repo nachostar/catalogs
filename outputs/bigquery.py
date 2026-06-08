@@ -71,36 +71,46 @@ def ensure_table(client, table_name, schema):
 
 def write_metrics(rows, table_name="daily_metrics", date_from=None, date_to=None):
     """
-    Inserta filas en BigQuery.
-    Borra el rango de fechas antes de insertar para evitar duplicados.
-    Funciona tanto para carga diaria (date_from == date_to) como masiva.
+    Inserta filas en BigQuery usando load jobs por partición (no streaming).
+    WRITE_TRUNCATE por partición evita duplicados sin necesitar DELETE.
+    Funciona para carga diaria y masiva.
     """
     if not rows:
         print("No hay filas para insertar en BigQuery.")
         return
 
+    import json as _json
+    from collections import defaultdict
+
     client = get_client()
     ensure_dataset(client)
     table_id = ensure_table(client, table_name, SCHEMA_DAILY_METRICS)
 
-    # Borrar rango de fechas para evitar duplicados
-    if date_from and date_to:
-        delete_query = f"""
-            DELETE FROM `{table_id}`
-            WHERE date BETWEEN '{date_from}' AND '{date_to}'
-        """
-        client.query(delete_query).result()
-        print(f"Rango {date_from} → {date_to} limpiado.")
+    # Agrupar filas por fecha para escribir partición por partición
+    by_date = defaultdict(list)
+    for row in rows:
+        by_date[row["date"]].append(row)
 
-    # Insertar en lotes de 500 (límite de insert_rows_json)
-    batch_size = 500
     total_inserted = 0
-    for i in range(0, len(rows), batch_size):
-        batch = rows[i:i + batch_size]
-        errors = client.insert_rows_json(table_id, batch)
-        if errors:
-            print(f"Errores en lote {i//batch_size + 1}: {errors[:2]}")
-        else:
-            total_inserted += len(batch)
+    for date_str, date_rows in sorted(by_date.items()):
+        partition_id = date_str.replace("-", "")
+        partition_table = f"{table_id}${partition_id}"
 
-    print(f"BigQuery: {total_inserted} filas insertadas en {table_id}")
+        job_config = bigquery.LoadJobConfig(
+            schema=SCHEMA_DAILY_METRICS,
+            write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+            source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+        )
+
+        ndjson = "\n".join(_json.dumps(r, default=str) for r in date_rows)
+        import io
+        job = client.load_table_from_file(
+            io.BytesIO(ndjson.encode()),
+            partition_table,
+            job_config=job_config,
+        )
+        job.result()
+        total_inserted += len(date_rows)
+        print(f"  {date_str}: {len(date_rows)} filas cargadas")
+
+    print(f"BigQuery: {total_inserted} filas totales en {table_id}")
