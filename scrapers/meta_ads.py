@@ -65,6 +65,7 @@ def _fetch_insights(account_id, token, level, extra_fields=None,
     params = {
         "level": level,
         "fields": ",".join(fields),
+        "time_increment": 1,  # un registro por día
         "limit": 500,
     }
 
