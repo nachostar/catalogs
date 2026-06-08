@@ -92,26 +92,32 @@ def _fetch_insights(account_id, token, level, extra_fields=None,
 
 
 def fetch_ad_urls(account_id, token):
-    """Fetch de URLs de destino por ad_id desde los creatives."""
+    """Fetch de URLs de destino por ad_id."""
     params = {
-        "fields": "id,creative{object_url,website_url,effective_object_story_id}",
+        "fields": "id,name,tracking_specs",
         "limit": 500,
         "access_token": token,
     }
     url = f"{BASE}/act_{account_id}/ads?{urllib.parse.urlencode(params)}"
     url_map = {}
-    while url:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read())
-        for ad in data.get("data", []):
-            creative = ad.get("creative", {}) or {}
-            dest_url = creative.get("website_url") or creative.get("object_url") or ""
-            if dest_url:
+    try:
+        while url:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read())
+            for ad in data.get("data", []):
+                specs = ad.get("tracking_specs") or []
+                dest_url = ""
+                for spec in specs:
+                    if "fb.content_url" in spec:
+                        dest_url = spec["fb.content_url"][0] if spec["fb.content_url"] else ""
+                        break
                 url_map[ad["id"]] = dest_url
-        url = data.get("paging", {}).get("next")
-        time.sleep(0.2)
-    print(f"  URLs de destino: {len(url_map)} ads")
+            url = data.get("paging", {}).get("next")
+            time.sleep(0.2)
+        print(f"  URLs de destino: {len(url_map)} ads")
+    except Exception as e:
+        print(f"  [warning] No se pudieron obtener URLs de destino: {e}")
     return url_map
 
 
