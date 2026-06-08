@@ -26,6 +26,12 @@ CONVERSION_ACTIONS = [
 ]
 
 DEFAULT_FIELDS = [
+    "campaign_id",
+    "campaign_name",
+    "adset_id",
+    "adset_name",
+    "ad_id",
+    "ad_name",
     "impressions",
     "reach",
     "clicks",
@@ -85,44 +91,31 @@ def _fetch_insights(account_id, token, level, extra_fields=None,
     return all_rows
 
 
-def fetch_by_level(account_id, token, level, date_from, date_to):
-    """Fetch de métricas para un nivel específico."""
-    extra = []
-    if level == "campaign":
-        extra = ["campaign_name", "campaign_id"]
-    elif level == "adset":
-        extra = ["campaign_name", "adset_name", "adset_id"]
-    elif level == "ad":
-        extra = ["campaign_name", "adset_name", "ad_name", "ad_id"]
-
-    print(f"  Fetching {level}...")
-    rows = _fetch_insights(account_id, token, level, extra_fields=extra,
+def fetch_ads(account_id, token, date_from, date_to):
+    """Fetch a nivel de ad con campaign + adset incluidos."""
+    print(f"  Fetching ads...")
+    rows = _fetch_insights(account_id, token, level="ad",
                            date_from=date_from, date_to=date_to)
-    print(f"  {level}: {len(rows)} registros")
+    print(f"  ads: {len(rows)} registros")
     return rows
 
 
-def fetch_by_product(account_id, token, date_from, date_to):
-    """Fetch de métricas por producto del catálogo."""
+def fetch_products(account_id, token, date_from, date_to):
+    """Fetch a nivel de ad con breakdown por product_id."""
     print(f"  Fetching product breakdown...")
-    rows = _fetch_insights(
-        account_id, token,
-        level="ad",
-        date_from=date_from,
-        date_to=date_to,
-        breakdowns="product_id",
-    )
-    print(f"  product: {len(rows)} registros")
+    rows = _fetch_insights(account_id, token, level="ad",
+                           date_from=date_from, date_to=date_to,
+                           breakdowns="product_id")
+    print(f"  products: {len(rows)} registros")
     return rows
 
 
 def fetch_all(account_id, token, date_from, date_to,
-              levels=("campaign", "ad", "product")):
-    """Fetch de todos los niveles solicitados."""
+              levels=("ad", "product")):
+    """Fetch de los niveles solicitados."""
     results = {}
-    for level in levels:
-        if level == "product":
-            results["product"] = fetch_by_product(account_id, token, date_from, date_to)
-        else:
-            results[level] = fetch_by_level(account_id, token, level, date_from, date_to)
+    if "ad" in levels:
+        results["ad"] = fetch_ads(account_id, token, date_from, date_to)
+    if "product" in levels:
+        results["product"] = fetch_products(account_id, token, date_from, date_to)
     return results
