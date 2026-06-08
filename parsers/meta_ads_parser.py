@@ -65,6 +65,7 @@ def parse_row(raw, account_id, product_id=None):
         "ad_name":        raw.get("ad_name"),
         "product_id":      pid,
         "product_name":    pname,
+        "product_url":     "",  # se enriquece después con el catálogo
         "destination_url": raw.get("destination_url", ""),
         "impressions":    int(raw.get("impressions", 0)),
         "reach":          int(raw.get("reach", 0)),
@@ -79,6 +80,18 @@ def parse_row(raw, account_id, product_id=None):
         "purchase_value": purchase_value,
         "roas":           roas,
     }
+
+
+def enrich_with_catalog(rows, catalog_url_map):
+    """
+    Enriquece filas de producto con la URL del catálogo.
+    catalog_url_map: {family_id: product_url}
+    """
+    for row in rows:
+        pid = row.get("product_id") or ""
+        if pid and pid in catalog_url_map:
+            row["product_url"] = catalog_url_map[pid]
+    return rows
 
 
 def parse_all(results_by_level, account_id):

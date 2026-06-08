@@ -24,6 +24,7 @@ SCHEMA_DAILY_METRICS = [
     bigquery.SchemaField("ad_name",         "STRING"),
     bigquery.SchemaField("product_id",       "STRING"),
     bigquery.SchemaField("product_name",     "STRING"),
+    bigquery.SchemaField("product_url",      "STRING"),
     bigquery.SchemaField("destination_url",  "STRING"),
     bigquery.SchemaField("impressions",     "INTEGER"),
     bigquery.SchemaField("reach",           "INTEGER"),
