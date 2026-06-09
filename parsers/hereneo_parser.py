@@ -16,6 +16,7 @@ FIELDNAMES_META = [
     "price", "sale_price", "link", "image_link", "additional_image_link",
     "brand", "google_product_category", "product_type",
     "color", "size", "gender", "material", "sku", "custom_number_1",
+    "custom_number_2",
 ]
 
 FIELDNAMES_GMC = [
@@ -144,7 +145,7 @@ def get_gender_gmc(prod):
 # Builders principales
 # ---------------------------------------------------------------------------
 
-def build_meta_rows(products, badge_url_map=None):
+def build_meta_rows(products, badge_url_map=None, bad_ctr_ids=None):
     """Genera filas para el catálogo de Meta Ads."""
     rows = []
     seen_ids = set()
@@ -190,6 +191,7 @@ def build_meta_rows(products, badge_url_map=None):
             "material": normalize_material(fam.get("materials", "") or ""),
             "sku": family_id,
             "custom_number_1": (prod.get("sku", {}) or {}).get("value", prod.get("external_sku", "")),
+            "custom_number_2": "mal_ctr" if (bad_ctr_ids and family_id in bad_ctr_ids) else "",
         })
 
     return rows

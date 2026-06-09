@@ -105,21 +105,33 @@ function Table({
 }
 
 export default function PlacementsTable({
-  platforms, ages
+  platforms, ages, selectedAge
 }: {
   platforms: PlacementRow[]
   ages: PlacementRow[]
+  selectedAge?: string
 }) {
+  const filteredAges = selectedAge
+    ? ages.filter(r => r.age === selectedAge)
+    : ages
+
   const instagram = platforms.filter(r => r.platform === 'instagram')
   const facebook  = platforms.filter(r => r.platform === 'facebook')
   const others    = platforms.filter(r => !['instagram','facebook'].includes(r.platform || ''))
 
   return (
     <div className="space-y-4">
-      <Table title="Instagram"       rows={instagram} labelKey="platform" color="text-pink-600" />
-      <Table title="Facebook"        rows={facebook}  labelKey="platform" color="text-blue-600" />
-      {others.length > 0 && <Table title="Otros"   rows={others}    labelKey="platform" color="text-gray-600" />}
-      {ages.length > 0 && <Table title="Por edad"  rows={ages}      labelKey="age"      color="text-violet-600" />}
+      <Table title="Instagram"  rows={instagram}    labelKey="platform" color="text-pink-600" />
+      <Table title="Facebook"   rows={facebook}     labelKey="platform" color="text-blue-600" />
+      {others.length > 0 && <Table title="Otros"    rows={others}       labelKey="platform" color="text-gray-600" />}
+      {filteredAges.length > 0 && (
+        <Table
+          title={selectedAge ? `Edad: ${selectedAge}` : 'Por edad'}
+          rows={filteredAges}
+          labelKey="age"
+          color="text-violet-600"
+        />
+      )}
     </div>
   )
 }

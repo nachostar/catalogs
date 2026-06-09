@@ -7,6 +7,7 @@ import ProductCard from '@/components/ProductCard'
 import MetricsChart from '@/components/MetricsChart'
 import SummaryCards from '@/components/SummaryCards'
 import PlacementsTable from '@/components/PlacementsTable'
+import GA4Section from '@/components/GA4Section'
 import { subDays, format, differenceInDays, parseISO } from 'date-fns'
 
 const today = format(new Date(), 'yyyy-MM-dd')
@@ -48,7 +49,7 @@ export default function Dashboard() {
   const [trend, setTrend] = useState<any[]>([])
   const [catalog, setCatalog] = useState<Map<string, any>>(new Map())
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'products' | 'ads' | 'placements'>('products')
+  const [activeTab, setActiveTab] = useState<'products' | 'ads' | 'placements' | 'ga4'>('products')
   const [placementPlatforms, setPlacementPlatforms] = useState<any[]>([])
   const [placementAges, setPlacementAges] = useState<any[]>([])
   const [ageFilter, setAgeFilter] = useState('')
@@ -119,6 +120,7 @@ export default function Dashboard() {
       setPrevMetrics(pm?.products || [])
       setPlacementPlatforms(pl?.platforms || [])
       setPlacementAges(pl?.ages || [])
+      console.log('placements:', pl?.platforms?.length, 'platforms,', pl?.ages?.length, 'ages')
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [dateFrom, dateTo, campaign, ageFilter, placementCampaign, placementAdset, placementAd])
@@ -235,7 +237,7 @@ export default function Dashboard() {
 
         {/* Tabs */}
         <div className="flex gap-2 border-b border-gray-200">
-          {(['products', 'ads', 'placements'] as const).map(tab => (
+          {(['products', 'ads', 'placements', 'ga4'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -245,7 +247,7 @@ export default function Dashboard() {
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {tab === 'products' ? `Productos (${productRows.length})` : tab === 'ads' ? `Anuncios (${adRows.length})` : 'Placements'}
+              {tab === 'products' ? `Productos (${productRows.length})` : tab === 'ads' ? `Anuncios (${adRows.length})` : tab === 'placements' ? 'Placements' : '📊 Google Analytics'}
             </button>
           ))}
         </div>
@@ -398,6 +400,8 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
+        ) : activeTab === 'ga4' ? (
+          <GA4Section dateFrom={dateFrom} dateTo={dateTo} />
         ) : activeTab === 'placements' ? (
           <div className="space-y-4">
             {/* Filtros de placement */}
@@ -450,7 +454,9 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            <PlacementsTable platforms={placementPlatforms} ages={placementAges} />
+            {/* debug */}
+            <div className="text-xs text-gray-400">platforms: {placementPlatforms.length} | ages: {placementAges.length} | filtro: "{ageFilter}"</div>
+            <PlacementsTable platforms={placementPlatforms} ages={placementAges} selectedAge={ageFilter} />
           </div>
         ) : null}
       </main>

@@ -71,7 +71,7 @@ export async function queryMetrics(params: {
     FROM \`${PROJECT}.${DATASET}.daily_metrics\`
     WHERE ${where} AND product_id IS NULL
     GROUP BY 1,2,3,4
-    ORDER BY SUM(spend) DESC
+    ORDER BY spend DESC
   `
 
   const [[products], [ads]] = await Promise.all([

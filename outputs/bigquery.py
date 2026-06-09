@@ -149,6 +149,34 @@ def write_placements(rows, table_name="placement_metrics", date_from=None, date_
     print(f"BigQuery: {total} filas en {table_id}")
 
 
+def get_bad_ctr_product_ids(min_impressions=50, max_ctr=3.0, days=30):
+    """
+    Retorna set de family_ids con CTR < max_ctr% y > min_impressions en los últimos days días.
+    """
+    sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if not sa_json:
+        print("Skipping bad CTR: falta GOOGLE_SERVICE_ACCOUNT_JSON")
+        return set()
+    try:
+        client = get_client()
+        query = f"""
+            SELECT product_id
+            FROM `{GCP_PROJECT}.{DATASET}.daily_metrics`
+            WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL {days} DAY)
+              AND product_id IS NOT NULL
+            GROUP BY product_id
+            HAVING SUM(impressions) > {min_impressions}
+               AND SAFE_DIVIDE(SUM(clicks), NULLIF(SUM(impressions), 0)) * 100 < {max_ctr}
+        """
+        rows = list(client.query(query).result())
+        ids = {r.product_id for r in rows}
+        print(f"Productos con mal CTR (<{max_ctr}%, >{min_impressions} impr.): {len(ids)}")
+        return ids
+    except Exception as e:
+        print(f"[warning] No se pudo obtener bad CTR: {e}")
+        return set()
+
+
 def write_catalog(products, table_name="hereneo_catalog"):
     """
     Guarda el catálogo completo de productos en BigQuery.

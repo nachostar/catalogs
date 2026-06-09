@@ -11,7 +11,7 @@ from parsers.hereneo_parser import (
     FIELDNAMES_META, FIELDNAMES_GMC,
 )
 from outputs import sheets, gcs
-from outputs.bigquery import write_catalog
+from outputs.bigquery import write_catalog, get_bad_ctr_product_ids
 
 SHEET_META     = "Catalogo"
 GMC_BLOB       = os.environ.get("GCS_BLOB", "hereneo_gmc_catalog.csv")
@@ -33,7 +33,8 @@ def main():
         print(f"Imágenes procesadas: {len(badge_url_map)}\n")
 
     print("=== Parser ===")
-    rows_meta = build_meta_rows(products, badge_url_map)
+    bad_ctr_ids = get_bad_ctr_product_ids()
+    rows_meta = build_meta_rows(products, badge_url_map, bad_ctr_ids)
     rows_gmc  = build_gmc_rows(products, badge_url_map)
     print(f"Meta: {len(rows_meta)} filas | GMC: {len(rows_gmc)} filas\n")
 
