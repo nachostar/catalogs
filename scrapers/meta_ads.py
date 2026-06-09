@@ -154,14 +154,14 @@ def fetch_products(account_id, token, date_from, date_to):
 
 
 def fetch_placements(account_id, token, date_from, date_to):
-    """Fetch de métricas por publisher_platform (Instagram, Facebook, etc.)."""
+    """Fetch de métricas por publisher_platform y age."""
     print(f"  Fetching placements...")
     rows = _fetch_insights(
         account_id, token,
         level="account",
         date_from=date_from,
         date_to=date_to,
-        breakdowns="publisher_platform",
+        breakdowns="publisher_platform,age",
     )
     print(f"  placements: {len(rows)} registros")
     return rows

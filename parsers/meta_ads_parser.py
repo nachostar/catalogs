@@ -106,6 +106,7 @@ def parse_placements(raw_rows, account_id):
             "date":           raw.get("date_start"),
             "account_id":     account_id,
             "platform":       raw.get("publisher_platform", ""),
+            "age":            raw.get("age", ""),
             "impressions":    impressions,
             "reach":          int(raw.get("reach", 0)),
             "clicks":         clicks,

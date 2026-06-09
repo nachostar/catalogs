@@ -17,6 +17,7 @@ SCHEMA_PLACEMENTS = [
     bigquery.SchemaField("date",            "DATE",    mode="REQUIRED"),
     bigquery.SchemaField("account_id",      "STRING",  mode="REQUIRED"),
     bigquery.SchemaField("platform",        "STRING"),
+    bigquery.SchemaField("age",             "STRING"),
     bigquery.SchemaField("impressions",     "INTEGER"),
     bigquery.SchemaField("reach",           "INTEGER"),
     bigquery.SchemaField("clicks",          "INTEGER"),
