@@ -11,7 +11,7 @@ from parsers.hereneo_parser import (
     FIELDNAMES_META, FIELDNAMES_GMC,
 )
 from outputs import sheets, gcs
-from outputs.bigquery import write_catalog, get_bad_ctr_product_ids
+from outputs.bigquery import write_catalog, get_bad_ctr_product_ids, get_vetados_ids
 
 SHEET_META     = "Catalogo"
 GMC_BLOB       = os.environ.get("GCS_BLOB", "hereneo_gmc_catalog.csv")
@@ -40,10 +40,12 @@ def main():
     rows_gmc  = build_gmc_rows(products, badge_url_map)
     print(f"Meta: {len(rows_meta)} filas | GMC: {len(rows_gmc)} filas")
 
-    print("\n=== Filtro mal_ctr para Sheets ===")
+    print("\n=== Filtros para Sheets ===")
     bad_ctr_ids = get_bad_ctr_product_ids()
-    rows_meta_filtered = [r for r in rows_meta if r["sku"] not in bad_ctr_ids]
-    print(f"Total: {len(rows_meta)} | Sin mal_ctr: {len(rows_meta_filtered)} | Excluidos: {len(rows_meta) - len(rows_meta_filtered)}")
+    vetados_ids = get_vetados_ids()
+    excluded_ids = bad_ctr_ids | vetados_ids
+    rows_meta_filtered = [r for r in rows_meta if r["sku"] not in excluded_ids]
+    print(f"Total: {len(rows_meta)} | Excluidos mal_ctr: {len(bad_ctr_ids)} | Vetados: {len(vetados_ids)} | En Sheet: {len(rows_meta_filtered)}")
 
     print("\n=== Outputs ===")
     sheets.write(rows_meta_filtered, SHEET_META, FIELDNAMES_META)

@@ -149,6 +149,24 @@ def write_placements(rows, table_name="placement_metrics", date_from=None, date_
     print(f"BigQuery: {total} filas en {table_id}")
 
 
+def get_vetados_ids():
+    """Retorna set de family_ids vetados manualmente."""
+    sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if not sa_json:
+        return set()
+    try:
+        client = get_client()
+        rows = list(client.query(
+            f"SELECT DISTINCT family_id FROM `{GCP_PROJECT}.{DATASET}.product_vetados`"
+        ).result())
+        ids = {r.family_id for r in rows}
+        print(f"Productos vetados manualmente: {len(ids)}")
+        return ids
+    except Exception as e:
+        print(f"[warning] No se pudo obtener vetados: {e}")
+        return set()
+
+
 def get_bad_ctr_product_ids(min_impressions=50, max_ctr=5.5, days=30):
     """
     Retorna set de family_ids con CTR < max_ctr% y > min_impressions en los últimos days días.
