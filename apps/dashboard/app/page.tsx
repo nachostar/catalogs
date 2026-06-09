@@ -14,6 +14,23 @@ const thirtyAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd')
 
 type ChartMetric = 'spend' | 'impressions' | 'clicks' | 'purchase' | 'roas'
 
+function calcSummary(rows: any[]) {
+  const totalSpend       = rows.reduce((a, r) => a + (Number(r.spend) || 0), 0)
+  const totalImpressions = rows.reduce((a, r) => a + (Number(r.impressions) || 0), 0)
+  const totalClicks      = rows.reduce((a, r) => a + (Number(r.clicks) || 0), 0)
+  return {
+    totalSpend,
+    totalImpressions,
+    totalClicks,
+    totalPurchases: rows.reduce((a, r) => a + (Number(r.purchase) || 0), 0),
+    totalRevenue:   rows.reduce((a, r) => a + (Number(r.purchase_value) || 0), 0),
+    avgRoas: totalSpend > 0
+      ? rows.reduce((a, r) => a + (Number(r.purchase_value) || 0), 0) / totalSpend
+      : 0,
+    avgCtr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
+  }
+}
+
 export default function Dashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -32,7 +49,10 @@ export default function Dashboard() {
   const [catalog, setCatalog] = useState<Map<string, any>>(new Map())
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'products' | 'ads' | 'placements'>('products')
-  const [placements, setPlacements] = useState<any[]>([])
+  const [placementPlatforms, setPlacementPlatforms] = useState<any[]>([])
+  const [placementAges, setPlacementAges] = useState<any[]>([])
+  const [ageFilter, setAgeFilter] = useState('')
+  const [availableAges, setAvailableAges] = useState<string[]>([])
   const [sortCol, setSortCol] = useState<string>('spend')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
 
@@ -49,7 +69,10 @@ export default function Dashboard() {
   useEffect(() => {
     fetch('/api/metrics?type=campaigns')
       .then(r => r.json())
-      .then(setCampaigns)
+      .then(d => setCampaigns(Array.isArray(d) ? d : []))
+    fetch('/api/placements?type=ages')
+      .then(r => r.json())
+      .then(d => setAvailableAges(Array.isArray(d) ? d : []))
   }, [])
 
   // Load catalog
@@ -81,16 +104,17 @@ export default function Dashboard() {
       fetch(`/api/metrics?${params}`).then(r => r.json()),
       fetch(`/api/metrics?type=trend&${params}`).then(r => r.json()),
       fetch(`/api/metrics?${prevParams}`).then(r => r.json()),
-      fetch(`/api/placements?${params}`).then(r => r.json()),
+      fetch(`/api/placements?${params}${ageFilter ? `&age=${encodeURIComponent(ageFilter)}` : ''}`).then(r => r.json()),
     ]).then(([m, t, pm, pl]) => {
       setMetrics(m?.products || [])
       setAdMetrics(m?.ads || [])
       setTrend(Array.isArray(t) ? t : [])
       setPrevMetrics(pm?.products || [])
-      setPlacements(Array.isArray(pl) ? pl : [])
+      setPlacementPlatforms(pl?.platforms || [])
+      setPlacementAges(pl?.ages || [])
       setLoading(false)
     }).catch(() => setLoading(false))
-  }, [dateFrom, dateTo, campaign])
+  }, [dateFrom, dateTo, campaign, ageFilter])
 
   if (status === 'loading' || !session) return null
 
@@ -125,24 +149,20 @@ export default function Dashboard() {
     return sortDir === 'desc' ? vb - va : va - vb
   })
 
-  function calcSummary(rows: any[]) {
-    const s = {
-      totalSpend: rows.reduce((a, r) => a + (Number(r.spend) || 0), 0),
-      totalImpressions: rows.reduce((a, r) => a + (Number(r.impressions) || 0), 0),
-      totalClicks: rows.reduce((a, r) => a + (Number(r.clicks) || 0), 0),
-      totalPurchases: rows.reduce((a, r) => a + (Number(r.purchase) || 0), 0),
-      totalRevenue: rows.reduce((a, r) => a + (Number(r.purchase_value) || 0), 0),
-      avgRoas: 0,
-    avgCtr: 0,
-    }
-    s.avgRoas = s.totalSpend > 0 ? s.totalRevenue / s.totalSpend : 0
-    s.avgCtr  = s.totalImpressions > 0 ? (s.totalClicks / s.totalImpressions) * 100 : 0
-    return s
-  }
-
   // Total: ad-level sin product breakdown (evita doble conteo con catálogo)
   const summary = calcSummary(adMetrics)
   const prevSummary = calcSummary(prevMetrics)
+
+  // Resumen solo de productos (para cards encima de la tabla)
+  const ps = productRows
+  const prodSummary = {
+    totalSpend: ps.reduce((s,r) => s + (Number(r.spend)||0), 0),
+    totalImpr:  ps.reduce((s,r) => s + (Number(r.impressions)||0), 0),
+    totalClics: ps.reduce((s,r) => s + (Number(r.clicks)||0), 0),
+    totalCart:  ps.reduce((s,r) => s + (Number(r.add_to_cart)||0), 0),
+    totalPurch: ps.reduce((s,r) => s + (Number(r.purchase)||0), 0),
+    totalRev:   ps.reduce((s,r) => s + (Number(r.purchase_value)||0), 0),
+  }
 
   const CHART_METRICS: ChartMetric[] = ['spend', 'impressions', 'clicks', 'purchase', 'roas']
 
@@ -228,27 +248,17 @@ export default function Dashboard() {
         ) : activeTab === 'products' ? (
           productRows.length === 0 ? (
             <div className="text-center py-20 text-gray-400">No hay datos de productos para este período.</div>
-          ) : (() => {
-            const ps = productRows
-            const totalSpend = ps.reduce((s,r) => s + (Number(r.spend)||0), 0)
-            const totalImpr  = ps.reduce((s,r) => s + (Number(r.impressions)||0), 0)
-            const totalClics = ps.reduce((s,r) => s + (Number(r.clicks)||0), 0)
-            const totalCart  = ps.reduce((s,r) => s + (Number(r.add_to_cart)||0), 0)
-            const totalPurch = ps.reduce((s,r) => s + (Number(r.purchase)||0), 0)
-            const totalRev   = ps.reduce((s,r) => s + (Number(r.purchase_value)||0), 0)
-            const ctr        = totalImpr > 0 ? ((totalClics/totalImpr)*100).toFixed(2) : '0'
-            const roas       = totalSpend > 0 ? (totalRev/totalSpend).toFixed(2) : '0'
-            return (
+          ) : (
             <>
             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
               {[
-                { label: 'Gasto',       value: `$${totalSpend.toLocaleString('es-CL',{maximumFractionDigits:0})}`, color: 'text-blue-500' },
-                { label: 'Impresiones', value: totalImpr.toLocaleString(),  color: 'text-purple-500' },
-                { label: 'Clics',       value: totalClics.toLocaleString(), color: 'text-indigo-500' },
-                { label: 'CTR',         value: `${ctr}%`,                   color: 'text-gray-500' },
-                { label: 'Add to cart', value: totalCart.toLocaleString(),  color: 'text-yellow-500' },
-                { label: 'Compras',     value: totalPurch.toLocaleString(), color: 'text-green-600' },
-                { label: 'ROAS',        value: roas,                        color: 'text-orange-500' },
+                { label: 'Gasto',       value: `$${prodSummary.totalSpend.toLocaleString('es-CL',{maximumFractionDigits:0})}`, color: 'text-blue-500' },
+                { label: 'Impresiones', value: prodSummary.totalImpr.toLocaleString(),  color: 'text-purple-500' },
+                { label: 'Clics',       value: prodSummary.totalClics.toLocaleString(), color: 'text-indigo-500' },
+                { label: 'CTR',         value: `${prodSummary.totalImpr > 0 ? ((prodSummary.totalClics/prodSummary.totalImpr)*100).toFixed(2) : '0'}%`, color: 'text-gray-500' },
+                { label: 'Add to cart', value: prodSummary.totalCart.toLocaleString(),  color: 'text-yellow-500' },
+                { label: 'Compras',     value: prodSummary.totalPurch.toLocaleString(), color: 'text-green-600' },
+                { label: 'ROAS',        value: prodSummary.totalSpend > 0 ? (prodSummary.totalRev/prodSummary.totalSpend).toFixed(2) : '0', color: 'text-orange-500' },
               ].map(c => (
                 <div key={c.label} className="bg-white rounded-xl border border-gray-200 px-4 py-3">
                   <div className={`text-xs font-medium uppercase tracking-wide mb-1 ${c.color}`}>{c.label}</div>
@@ -347,9 +357,8 @@ export default function Dashboard() {
               </table>
             </div>
             </>
-            )
-          })()
-        ) : (
+          )
+        ) : activeTab === 'ads' ? (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
@@ -375,7 +384,30 @@ export default function Dashboard() {
             </table>
           </div>
         ) : activeTab === 'placements' ? (
-          <PlacementsTable data={placements} />
+          <div className="space-y-4">
+            {availableAges.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-600">Rango de edad:</span>
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => setAgeFilter('')}
+                    className={`text-xs px-3 py-1 rounded-full border transition ${
+                      ageFilter === '' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >Todos</button>
+                  {availableAges.map(age => (
+                    <button key={age}
+                      onClick={() => setAgeFilter(age)}
+                      className={`text-xs px-3 py-1 rounded-full border transition ${
+                        ageFilter === age ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >{age}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <PlacementsTable platforms={placementPlatforms} ages={placementAges} />
+          </div>
         ) : null}
       </main>
     </div>

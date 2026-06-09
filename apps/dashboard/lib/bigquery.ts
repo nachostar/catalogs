@@ -134,29 +134,57 @@ export async function queryCatalog(params: { search?: string }) {
   return rows
 }
 
-export async function queryPlacements(params: { dateFrom: string; dateTo: string }) {
+export async function queryPlacements(params: {
+  dateFrom: string; dateTo: string; age?: string
+}) {
   const client = getClient()
-  const { dateFrom, dateTo } = params
-  const query = `
-    SELECT
-      platform,
-      SUM(impressions)     AS impressions,
-      SUM(reach)           AS reach,
-      SUM(clicks)          AS clicks,
+  const { dateFrom, dateTo, age } = params
+  const dateFilter = `date BETWEEN '${dateFrom}' AND '${dateTo}'`
+
+  // Por plataforma
+  const platformQuery = `
+    SELECT platform, '' AS age,
+      SUM(impressions) AS impressions, SUM(reach) AS reach, SUM(clicks) AS clicks,
       SAFE_DIVIDE(SUM(clicks), NULLIF(SUM(impressions),0)) * 100 AS ctr,
-      SUM(spend)           AS spend,
-      SUM(view_content)    AS view_content,
-      SUM(add_to_cart)     AS add_to_cart,
-      SUM(purchase)        AS purchase,
-      SUM(purchase_value)  AS purchase_value,
+      SUM(spend) AS spend, SUM(view_content) AS view_content,
+      SUM(add_to_cart) AS add_to_cart, SUM(purchase) AS purchase,
+      SUM(purchase_value) AS purchase_value,
       SAFE_DIVIDE(SUM(purchase_value), NULLIF(SUM(spend),0)) AS roas
     FROM \`${PROJECT}.${DATASET}.placement_metrics\`
-    WHERE date BETWEEN '${dateFrom}' AND '${dateTo}'
-    GROUP BY platform
-    ORDER BY spend DESC
+    WHERE ${dateFilter} AND breakdown_type = 'platform'
+    GROUP BY platform ORDER BY spend DESC
   `
-  const [rows] = await client.query(query)
-  return rows
+
+  // Por edad (con filtro opcional)
+  const ageWhere = age ? `AND age = '${age}'` : ''
+  const ageQuery = `
+    SELECT '' AS platform, age,
+      SUM(impressions) AS impressions, SUM(reach) AS reach, SUM(clicks) AS clicks,
+      SAFE_DIVIDE(SUM(clicks), NULLIF(SUM(impressions),0)) * 100 AS ctr,
+      SUM(spend) AS spend, SUM(view_content) AS view_content,
+      SUM(add_to_cart) AS add_to_cart, SUM(purchase) AS purchase,
+      SUM(purchase_value) AS purchase_value,
+      SAFE_DIVIDE(SUM(purchase_value), NULLIF(SUM(spend),0)) AS roas
+    FROM \`${PROJECT}.${DATASET}.placement_metrics\`
+    WHERE ${dateFilter} AND breakdown_type = 'age' ${ageWhere}
+    GROUP BY age ORDER BY spend DESC
+  `
+
+  const [[platforms], [ages]] = await Promise.all([
+    client.query(platformQuery),
+    client.query(ageQuery),
+  ])
+  return { platforms, ages }
+}
+
+export async function queryPlacementAges() {
+  const client = getClient()
+  const [rows] = await client.query(`
+    SELECT DISTINCT age FROM \`${PROJECT}.${DATASET}.placement_metrics\`
+    WHERE age IS NOT NULL AND age != '' AND breakdown_type = 'age'
+    ORDER BY age
+  `)
+  return rows.map((r: any) => r.age)
 }
 
 export async function queryCampaigns() {

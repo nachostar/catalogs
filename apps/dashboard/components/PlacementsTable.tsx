@@ -1,7 +1,8 @@
 'use client'
 
 interface PlacementRow {
-  platform: string
+  platform?: string
+  age?: string
   impressions: number
   reach: number
   clicks: number
@@ -14,20 +15,21 @@ interface PlacementRow {
   roas: number
 }
 
-const COLS = [
-  { key: 'impressions',   label: 'Impresiones' },
-  { key: 'reach',         label: 'Alcance' },
-  { key: 'clicks',        label: 'Clics' },
-  { key: 'ctr',           label: 'CTR',     pct: true },
-  { key: 'spend',         label: 'Gasto',   money: true },
-  { key: 'view_content',  label: '👁 View' },
-  { key: 'add_to_cart',   label: '🛒 Cart' },
-  { key: 'purchase',      label: '✅ Compras' },
-  { key: 'purchase_value',label: 'Revenue', money: true },
-  { key: 'roas',          label: 'ROAS',    dec: true },
+const METRIC_COLS = [
+  { key: 'impressions',    label: 'Impresiones' },
+  { key: 'reach',          label: 'Alcance' },
+  { key: 'clicks',         label: 'Clics' },
+  { key: 'ctr',            label: 'CTR',     pct: true },
+  { key: 'spend',          label: 'Gasto',   money: true },
+  { key: 'view_content',   label: '👁 View' },
+  { key: 'add_to_cart',    label: '🛒 Cart' },
+  { key: 'purchase',       label: '✅ Compras' },
+  { key: 'purchase_value', label: 'Revenue', money: true },
+  { key: 'roas',           label: 'ROAS',    dec: true },
 ]
 
-function fmt(v: number, money?: boolean, pct?: boolean, dec?: boolean) {
+function fmt(v: any, money?: boolean, pct?: boolean, dec?: boolean) {
+  if (typeof v === 'string') return v || '—'
   if (pct)   return `${(v||0).toFixed(2)}%`
   if (dec)   return (v||0).toFixed(2)
   if (money) return `$${(v||0).toLocaleString('es-CL',{maximumFractionDigits:0})}`
@@ -35,26 +37,32 @@ function fmt(v: number, money?: boolean, pct?: boolean, dec?: boolean) {
 }
 
 function totals(rows: PlacementRow[]): PlacementRow {
-  const spend = rows.reduce((s,r) => s + r.spend, 0)
-  const impr  = rows.reduce((s,r) => s + r.impressions, 0)
-  const clics = rows.reduce((s,r) => s + r.clicks, 0)
-  const rev   = rows.reduce((s,r) => s + r.purchase_value, 0)
+  const spend = rows.reduce((s,r) => s + (Number(r.spend)||0), 0)
+  const impr  = rows.reduce((s,r) => s + (Number(r.impressions)||0), 0)
+  const clics = rows.reduce((s,r) => s + (Number(r.clicks)||0), 0)
+  const rev   = rows.reduce((s,r) => s + (Number(r.purchase_value)||0), 0)
   return {
-    platform:      'TOTAL',
     impressions:   impr,
-    reach:         rows.reduce((s,r) => s + r.reach, 0),
+    reach:         rows.reduce((s,r) => s + (Number(r.reach)||0), 0),
     clicks:        clics,
     ctr:           impr > 0 ? (clics/impr)*100 : 0,
     spend,
-    view_content:  rows.reduce((s,r) => s + r.view_content, 0),
-    add_to_cart:   rows.reduce((s,r) => s + r.add_to_cart, 0),
-    purchase:      rows.reduce((s,r) => s + r.purchase, 0),
+    view_content:  rows.reduce((s,r) => s + (Number(r.view_content)||0), 0),
+    add_to_cart:   rows.reduce((s,r) => s + (Number(r.add_to_cart)||0), 0),
+    purchase:      rows.reduce((s,r) => s + (Number(r.purchase)||0), 0),
     purchase_value: rev,
     roas:          spend > 0 ? rev/spend : 0,
   }
 }
 
-function Table({ title, rows, color }: { title: string; rows: PlacementRow[]; color: string }) {
+function Table({
+  title, rows, labelKey, color
+}: {
+  title: string
+  rows: PlacementRow[]
+  labelKey: 'platform' | 'age'
+  color: string
+}) {
   if (!rows.length) return null
   const total = totals(rows)
   return (
@@ -63,15 +71,17 @@ function Table({ title, rows, color }: { title: string; rows: PlacementRow[]; co
       <table className="w-full text-sm">
         <thead className="bg-gray-50 text-gray-400 text-xs uppercase">
           <tr>
-            <th className="px-4 py-2 text-left">Placement</th>
-            {COLS.map(c => <th key={c.key} className="px-4 py-2 text-right">{c.label}</th>)}
+            <th className="px-4 py-2 text-left">{labelKey === 'platform' ? 'Plataforma' : 'Edad'}</th>
+            {METRIC_COLS.map(c => <th key={c.key} className="px-4 py-2 text-right">{c.label}</th>)}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {rows.map(r => (
-            <tr key={r.platform} className="hover:bg-gray-50">
-              <td className="px-4 py-2 capitalize text-gray-700">{r.platform.replace(/_/g,' ')}</td>
-              {COLS.map(c => (
+          {rows.map((r, i) => (
+            <tr key={i} className="hover:bg-gray-50">
+              <td className="px-4 py-2 capitalize text-gray-700 font-medium">
+                {(r[labelKey] || '—').replace(/_/g,' ')}
+              </td>
+              {METRIC_COLS.map(c => (
                 <td key={c.key} className="px-4 py-2 text-right text-gray-600">
                   {fmt((r as any)[c.key], c.money, c.pct, c.dec)}
                 </td>
@@ -82,7 +92,7 @@ function Table({ title, rows, color }: { title: string; rows: PlacementRow[]; co
         <tfoot className="bg-gray-50 font-semibold text-gray-700 border-t-2 border-gray-200">
           <tr>
             <td className="px-4 py-2">Total</td>
-            {COLS.map(c => (
+            {METRIC_COLS.map(c => (
               <td key={c.key} className="px-4 py-2 text-right">
                 {fmt((total as any)[c.key], c.money, c.pct, c.dec)}
               </td>
@@ -94,16 +104,22 @@ function Table({ title, rows, color }: { title: string; rows: PlacementRow[]; co
   )
 }
 
-export default function PlacementsTable({ data }: { data: PlacementRow[] }) {
-  const instagram = data.filter(r => r.platform === 'instagram')
-  const facebook  = data.filter(r => r.platform === 'facebook')
-  const others    = data.filter(r => !['instagram','facebook'].includes(r.platform))
+export default function PlacementsTable({
+  platforms, ages
+}: {
+  platforms: PlacementRow[]
+  ages: PlacementRow[]
+}) {
+  const instagram = platforms.filter(r => r.platform === 'instagram')
+  const facebook  = platforms.filter(r => r.platform === 'facebook')
+  const others    = platforms.filter(r => !['instagram','facebook'].includes(r.platform || ''))
 
   return (
     <div className="space-y-4">
-      <Table title="Instagram" rows={instagram} color="text-pink-600" />
-      <Table title="Facebook"  rows={facebook}  color="text-blue-600" />
-      {others.length > 0 && <Table title="Otros" rows={others} color="text-gray-600" />}
+      <Table title="Instagram"       rows={instagram} labelKey="platform" color="text-pink-600" />
+      <Table title="Facebook"        rows={facebook}  labelKey="platform" color="text-blue-600" />
+      {others.length > 0 && <Table title="Otros"   rows={others}    labelKey="platform" color="text-gray-600" />}
+      {ages.length > 0 && <Table title="Por edad"  rows={ages}      labelKey="age"      color="text-violet-600" />}
     </div>
   )
 }

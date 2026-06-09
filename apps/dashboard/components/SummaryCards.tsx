@@ -46,8 +46,8 @@ function Card({
   )
 }
 
-export default function SummaryCards({ data, prev }: { data: Summary; prev?: Summary }) {
-  const p = prev || { totalSpend: 0, totalImpressions: 0, totalClicks: 0, totalPurchases: 0, totalRevenue: 0, avgRoas: 0 }
+export default function SummaryCards({ data, prev }: { data: Summary; prev?: Partial<Summary> }) {
+  const p: Summary = { totalSpend: 0, totalImpressions: 0, totalClicks: 0, totalPurchases: 0, totalRevenue: 0, avgRoas: 0, avgCtr: 0, ...prev }
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       <Card label="Gasto total"   value={`$${fmt(data.totalSpend)}`}      color="text-blue-500"    current={data.totalSpend}       prev={p.totalSpend} />
