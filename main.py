@@ -1,5 +1,5 @@
 """
-Orquestador diario: scraper + parser → Sheets (Meta) + GCS (GMC)
+Orquestador diario: scraper + parser → Sheets (Meta) + GCS (GMC) + BigQuery
 """
 
 import os
@@ -32,16 +32,22 @@ def main():
         badge_url_map = process_all(products, sa_json)
         print(f"Imágenes procesadas: {len(badge_url_map)}\n")
 
-    print("=== Parser ===")
-    bad_ctr_ids = get_bad_ctr_product_ids()
-    rows_meta = build_meta_rows(products, badge_url_map, bad_ctr_ids)
-    rows_gmc  = build_gmc_rows(products, badge_url_map)
-    print(f"Meta: {len(rows_meta)} filas | GMC: {len(rows_gmc)} filas\n")
-
-    print("=== Outputs ===")
-    sheets.write(rows_meta, SHEET_META, FIELDNAMES_META)
-    gcs.upload_csv(rows_gmc, FIELDNAMES_GMC, GMC_BLOB, GMC_LOCAL)
+    print("=== BigQuery: catálogo completo ===")
     write_catalog(products)
+
+    print("\n=== Parser ===")
+    rows_meta = build_meta_rows(products, badge_url_map)
+    rows_gmc  = build_gmc_rows(products, badge_url_map)
+    print(f"Meta: {len(rows_meta)} filas | GMC: {len(rows_gmc)} filas")
+
+    print("\n=== Filtro mal_ctr para Sheets ===")
+    bad_ctr_ids = get_bad_ctr_product_ids()
+    rows_meta_filtered = [r for r in rows_meta if r["sku"] not in bad_ctr_ids]
+    print(f"Total: {len(rows_meta)} | Sin mal_ctr: {len(rows_meta_filtered)} | Excluidos: {len(rows_meta) - len(rows_meta_filtered)}")
+
+    print("\n=== Outputs ===")
+    sheets.write(rows_meta_filtered, SHEET_META, FIELDNAMES_META)
+    gcs.upload_csv(rows_gmc, FIELDNAMES_GMC, GMC_BLOB, GMC_LOCAL)
 
     print("\nListo.")
 
