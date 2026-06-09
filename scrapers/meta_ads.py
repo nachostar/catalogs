@@ -105,9 +105,9 @@ def _build_url_from_creative(creative):
 
 
 def fetch_ad_urls(account_id, token):
-    """Fetch de URLs de destino por ad_id usando effective_object_story_id."""
+    """Fetch de URLs de destino y thumbnails por ad_id."""
     params = {
-        "fields": "id,creative{effective_object_story_id}",
+        "fields": "id,creative{effective_object_story_id,thumbnail_url}",
         "limit": 500,
         "access_token": token,
     }
@@ -119,7 +119,11 @@ def fetch_ad_urls(account_id, token):
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read())
             for ad in data.get("data", []):
-                url_map[ad["id"]] = _build_url_from_creative(ad.get("creative"))
+                creative = ad.get("creative") or {}
+                url_map[ad["id"]] = {
+                    "destination_url": _build_url_from_creative(creative),
+                    "thumbnail_url":   creative.get("thumbnail_url", ""),
+                }
             url = data.get("paging", {}).get("next")
             time.sleep(0.2)
         print(f"  URLs de destino: {len(url_map)} ads")
@@ -138,7 +142,9 @@ def fetch_ads(account_id, token, date_from, date_to):
     print(f"  Fetching URLs de destino...")
     url_map = fetch_ad_urls(account_id, token)
     for row in rows:
-        row["destination_url"] = url_map.get(row.get("ad_id"), "")
+        ad_info = url_map.get(row.get("ad_id"), {})
+        row["destination_url"] = ad_info.get("destination_url", "") if isinstance(ad_info, dict) else ""
+        row["thumbnail_url"]   = ad_info.get("thumbnail_url", "")   if isinstance(ad_info, dict) else ""
 
     return rows
 

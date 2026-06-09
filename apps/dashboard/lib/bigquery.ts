@@ -56,6 +56,7 @@ export async function queryMetrics(params: {
       adset_name,
       ad_name,
       destination_url,
+      MAX(thumbnail_url) AS thumbnail_url,
       SUM(impressions)     AS impressions,
       SUM(reach)           AS reach,
       SUM(clicks)          AS clicks,
@@ -70,7 +71,7 @@ export async function queryMetrics(params: {
     FROM \`${PROJECT}.${DATASET}.daily_metrics\`
     WHERE ${where} AND product_id IS NULL
     GROUP BY 1,2,3,4
-    ORDER BY spend DESC
+    ORDER BY SUM(spend) DESC
   `
 
   const [[products], [ads]] = await Promise.all([

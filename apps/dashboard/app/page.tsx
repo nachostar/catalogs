@@ -363,7 +363,7 @@ export default function Dashboard() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                 <tr>
-                  {['Anuncio', 'Campaña', 'Gasto', 'Clics', 'CTR', 'Compras', 'ROAS'].map(h => (
+                  {['', 'Anuncio', 'Campaña', 'Gasto', 'Clics', 'CTR', 'Compras', 'ROAS'].map(h => (
                     <th key={h} className="px-4 py-3 text-left">{h}</th>
                   ))}
                 </tr>
@@ -371,6 +371,14 @@ export default function Dashboard() {
               <tbody className="divide-y divide-gray-100">
                 {adRows.map((r, i) => (
                   <tr key={i} className="hover:bg-gray-50 transition">
+                    <td className="px-3 py-2">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                        {r.thumbnail_url
+                          ? <img src={r.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                          : <span className="flex items-center justify-center w-full h-full text-gray-300 text-lg">▶</span>
+                        }
+                      </div>
+                    </td>
                     <td className="px-4 py-3 font-medium text-gray-800 max-w-xs truncate">{r.ad_name}</td>
                     <td className="px-4 py-3 text-gray-500 truncate max-w-[150px]">{r.campaign_name}</td>
                     <td className="px-4 py-3">${(r.spend||0).toLocaleString('es-CL')}</td>

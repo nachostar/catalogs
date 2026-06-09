@@ -67,6 +67,7 @@ def parse_row(raw, account_id, product_id=None):
         "product_name":    pname,
         "product_url":     "",  # se enriquece después con el catálogo
         "destination_url": raw.get("destination_url", ""),
+        "thumbnail_url":   raw.get("thumbnail_url", ""),
         "impressions":    int(raw.get("impressions", 0)),
         "reach":          int(raw.get("reach", 0)),
         "clicks":         int(raw.get("clicks", 0)),
