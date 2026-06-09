@@ -149,7 +149,7 @@ def write_placements(rows, table_name="placement_metrics", date_from=None, date_
     print(f"BigQuery: {total} filas en {table_id}")
 
 
-def get_bad_ctr_product_ids(min_impressions=50, max_ctr=3.0, days=30):
+def get_bad_ctr_product_ids(min_impressions=60, max_ctr=4.5, days=30):
     """
     Retorna set de family_ids con CTR < max_ctr% y > min_impressions en los últimos days días.
     """
