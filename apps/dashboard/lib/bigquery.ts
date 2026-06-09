@@ -56,7 +56,7 @@ export async function queryMetrics(params: {
       adset_name,
       ad_name,
       destination_url,
-      MAX(thumbnail_url) AS thumbnail_url,
+      '' AS thumbnail_url,
       SUM(impressions)     AS impressions,
       SUM(reach)           AS reach,
       SUM(clicks)          AS clicks,
@@ -137,12 +137,18 @@ export async function queryCatalog(params: { search?: string }) {
 
 export async function queryPlacements(params: {
   dateFrom: string; dateTo: string; age?: string
+  campaign?: string; adset?: string; ad?: string
 }) {
   const client = getClient()
-  const { dateFrom, dateTo, age } = params
+  const { dateFrom, dateTo, age, campaign, adset, ad } = params
   const dateFilter = `date BETWEEN '${dateFrom}' AND '${dateTo}'`
 
-  // Por plataforma
+  const extraFilters: string[] = []
+  if (campaign) extraFilters.push(`campaign_name = '${campaign.replace(/'/g,"''")}'`)
+  if (adset)    extraFilters.push(`adset_name = '${adset.replace(/'/g,"''")}'`)
+  if (ad)       extraFilters.push(`ad_name = '${ad.replace(/'/g,"''")}'`)
+  const extra = extraFilters.length ? `AND ${extraFilters.join(' AND ')}` : ''
+
   const platformQuery = `
     SELECT platform, '' AS age,
       SUM(impressions) AS impressions, SUM(reach) AS reach, SUM(clicks) AS clicks,
@@ -152,11 +158,10 @@ export async function queryPlacements(params: {
       SUM(purchase_value) AS purchase_value,
       SAFE_DIVIDE(SUM(purchase_value), NULLIF(SUM(spend),0)) AS roas
     FROM \`${PROJECT}.${DATASET}.placement_metrics\`
-    WHERE ${dateFilter} AND breakdown_type = 'platform'
+    WHERE ${dateFilter} AND breakdown_type = 'platform' ${extra}
     GROUP BY platform ORDER BY spend DESC
   `
 
-  // Por edad (con filtro opcional)
   const ageWhere = age ? `AND age = '${age}'` : ''
   const ageQuery = `
     SELECT '' AS platform, age,
@@ -167,7 +172,7 @@ export async function queryPlacements(params: {
       SUM(purchase_value) AS purchase_value,
       SAFE_DIVIDE(SUM(purchase_value), NULLIF(SUM(spend),0)) AS roas
     FROM \`${PROJECT}.${DATASET}.placement_metrics\`
-    WHERE ${dateFilter} AND breakdown_type = 'age' ${ageWhere}
+    WHERE ${dateFilter} AND breakdown_type = 'age' ${ageWhere} ${extra}
     GROUP BY age ORDER BY spend DESC
   `
 
@@ -176,6 +181,22 @@ export async function queryPlacements(params: {
     client.query(ageQuery),
   ])
   return { platforms, ages }
+}
+
+export async function queryPlacementDimensions(params: { dateFrom: string; dateTo: string }) {
+  const client = getClient()
+  const { dateFrom, dateTo } = params
+  const where = `date BETWEEN '${dateFrom}' AND '${dateTo}'`
+  const [[campaigns], [adsets], [ads]] = await Promise.all([
+    client.query(`SELECT DISTINCT campaign_name FROM \`${PROJECT}.${DATASET}.placement_metrics\` WHERE ${where} AND campaign_name IS NOT NULL ORDER BY campaign_name`),
+    client.query(`SELECT DISTINCT adset_name FROM \`${PROJECT}.${DATASET}.placement_metrics\` WHERE ${where} AND adset_name IS NOT NULL ORDER BY adset_name`),
+    client.query(`SELECT DISTINCT ad_name FROM \`${PROJECT}.${DATASET}.placement_metrics\` WHERE ${where} AND ad_name IS NOT NULL ORDER BY ad_name`),
+  ])
+  return {
+    campaigns: (campaigns as any[]).map(r => r.campaign_name),
+    adsets:    (adsets as any[]).map(r => r.adset_name),
+    ads:       (ads as any[]).map(r => r.ad_name),
+  }
 }
 
 export async function queryPlacementAges() {

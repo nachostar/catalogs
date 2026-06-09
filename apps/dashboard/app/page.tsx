@@ -53,6 +53,10 @@ export default function Dashboard() {
   const [placementAges, setPlacementAges] = useState<any[]>([])
   const [ageFilter, setAgeFilter] = useState('')
   const [availableAges, setAvailableAges] = useState<string[]>([])
+  const [placementCampaign, setPlacementCampaign] = useState('')
+  const [placementAdset, setPlacementAdset] = useState('')
+  const [placementAd, setPlacementAd] = useState('')
+  const [placementDims, setPlacementDims] = useState<{campaigns:string[];adsets:string[];ads:string[]}>({campaigns:[],adsets:[],ads:[]})
   const [sortCol, setSortCol] = useState<string>('spend')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
 
@@ -73,6 +77,9 @@ export default function Dashboard() {
     fetch('/api/placements?type=ages')
       .then(r => r.json())
       .then(d => setAvailableAges(Array.isArray(d) ? d : []))
+    fetch(`/api/placements?type=dimensions&dateFrom=${thirtyAgo}&dateTo=${today}`)
+      .then(r => r.json())
+      .then(d => d?.campaigns && setPlacementDims(d))
   }, [])
 
   // Load catalog
@@ -104,7 +111,7 @@ export default function Dashboard() {
       fetch(`/api/metrics?${params}`).then(r => r.json()),
       fetch(`/api/metrics?type=trend&${params}`).then(r => r.json()),
       fetch(`/api/metrics?${prevParams}`).then(r => r.json()),
-      fetch(`/api/placements?${params}${ageFilter ? `&age=${encodeURIComponent(ageFilter)}` : ''}`).then(r => r.json()),
+      fetch(`/api/placements?${params}${ageFilter?`&age=${encodeURIComponent(ageFilter)}`:''}${placementCampaign?`&campaign=${encodeURIComponent(placementCampaign)}`:''}${placementAdset?`&adset=${encodeURIComponent(placementAdset)}`:''}${placementAd?`&ad=${encodeURIComponent(placementAd)}`:''}`).then(r => r.json()),
     ]).then(([m, t, pm, pl]) => {
       setMetrics(m?.products || [])
       setAdMetrics(m?.ads || [])
@@ -114,7 +121,7 @@ export default function Dashboard() {
       setPlacementAges(pl?.ages || [])
       setLoading(false)
     }).catch(() => setLoading(false))
-  }, [dateFrom, dateTo, campaign, ageFilter])
+  }, [dateFrom, dateTo, campaign, ageFilter, placementCampaign, placementAdset, placementAd])
 
   if (status === 'loading' || !session) return null
 
@@ -393,27 +400,56 @@ export default function Dashboard() {
           </div>
         ) : activeTab === 'placements' ? (
           <div className="space-y-4">
-            {availableAges.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center gap-3">
-                <span className="text-sm font-medium text-gray-600">Rango de edad:</span>
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={() => setAgeFilter('')}
-                    className={`text-xs px-3 py-1 rounded-full border transition ${
-                      ageFilter === '' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >Todos</button>
-                  {availableAges.map(age => (
-                    <button key={age}
-                      onClick={() => setAgeFilter(age)}
-                      className={`text-xs px-3 py-1 rounded-full border transition ${
-                        ageFilter === age ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >{age}</button>
-                  ))}
+            {/* Filtros de placement */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-4 items-end">
+              {/* Edad */}
+              {availableAges.length > 0 && (
+                <div>
+                  <div className="text-xs font-medium text-gray-500 mb-1">Edad</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {['', ...availableAges].map(a => (
+                      <button key={a||'all'} onClick={() => setAgeFilter(a)}
+                        className={`text-xs px-2.5 py-1 rounded-full border transition ${ageFilter===a?'bg-blue-500 text-white border-blue-500':'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
+                        {a || 'Todas'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+              {/* Campaña */}
+              {placementDims.campaigns.length > 0 && (
+                <div>
+                  <div className="text-xs font-medium text-gray-500 mb-1">Campaña</div>
+                  <select value={placementCampaign} onChange={e => setPlacementCampaign(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs bg-white min-w-[160px]">
+                    <option value="">Todas</option>
+                    {placementDims.campaigns.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              )}
+              {/* Adset */}
+              {placementDims.adsets.length > 0 && (
+                <div>
+                  <div className="text-xs font-medium text-gray-500 mb-1">Grupo de anuncios</div>
+                  <select value={placementAdset} onChange={e => setPlacementAdset(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs bg-white min-w-[160px]">
+                    <option value="">Todos</option>
+                    {placementDims.adsets.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+              )}
+              {/* Anuncio */}
+              {placementDims.ads.length > 0 && (
+                <div>
+                  <div className="text-xs font-medium text-gray-500 mb-1">Anuncio</div>
+                  <select value={placementAd} onChange={e => setPlacementAd(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs bg-white min-w-[160px]">
+                    <option value="">Todos</option>
+                    {placementDims.ads.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
             <PlacementsTable platforms={placementPlatforms} ages={placementAges} />
           </div>
         ) : null}
