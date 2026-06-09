@@ -13,6 +13,23 @@ from google.oauth2.service_account import Credentials
 GCP_PROJECT = os.environ.get("GCP_PROJECT", "quetri")
 DATASET     = "meta_ads"
 
+SCHEMA_PLACEMENTS = [
+    bigquery.SchemaField("date",            "DATE",    mode="REQUIRED"),
+    bigquery.SchemaField("account_id",      "STRING",  mode="REQUIRED"),
+    bigquery.SchemaField("platform",        "STRING"),
+    bigquery.SchemaField("impressions",     "INTEGER"),
+    bigquery.SchemaField("reach",           "INTEGER"),
+    bigquery.SchemaField("clicks",          "INTEGER"),
+    bigquery.SchemaField("ctr",             "FLOAT"),
+    bigquery.SchemaField("spend",           "FLOAT"),
+    bigquery.SchemaField("cpc",             "FLOAT"),
+    bigquery.SchemaField("view_content",    "FLOAT"),
+    bigquery.SchemaField("add_to_cart",     "FLOAT"),
+    bigquery.SchemaField("purchase",        "FLOAT"),
+    bigquery.SchemaField("purchase_value",  "FLOAT"),
+    bigquery.SchemaField("roas",            "FLOAT"),
+]
+
 SCHEMA_HERENEO_CATALOG = [
     bigquery.SchemaField("product_id",    "STRING",  mode="REQUIRED"),
     bigquery.SchemaField("family_id",     "STRING"),
@@ -85,6 +102,42 @@ def ensure_table(client, table_name, schema):
     )
     client.create_table(table, exists_ok=True)
     return table_id
+
+
+def write_placements(rows, table_name="placement_metrics", date_from=None, date_to=None):
+    """Guarda métricas por placement en BigQuery."""
+    if not rows:
+        return
+
+    import json as _json, io
+    from collections import defaultdict
+
+    client = get_client()
+    ensure_dataset(client)
+    table_id = ensure_table(client, table_name, SCHEMA_PLACEMENTS)
+
+    by_date = defaultdict(list)
+    for row in rows:
+        by_date[row["date"]].append(row)
+
+    total = 0
+    for date_str, date_rows in sorted(by_date.items()):
+        partition_id = date_str.replace("-", "")
+        job_config = bigquery.LoadJobConfig(
+            schema=SCHEMA_PLACEMENTS,
+            write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+            source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+        )
+        ndjson = "\n".join(_json.dumps(r, default=str) for r in date_rows)
+        job = client.load_table_from_file(
+            io.BytesIO(ndjson.encode()),
+            f"{table_id}${partition_id}",
+            job_config=job_config,
+        )
+        job.result()
+        total += len(date_rows)
+
+    print(f"BigQuery: {total} filas en {table_id}")
 
 
 def write_catalog(products, table_name="hereneo_catalog"):

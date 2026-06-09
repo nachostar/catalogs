@@ -94,6 +94,35 @@ def enrich_with_catalog(rows, catalog_url_map):
     return rows
 
 
+def parse_placements(raw_rows, account_id):
+    rows = []
+    for raw in raw_rows:
+        conversions    = extract_conversions(raw.get("actions"))
+        purchase_value = extract_purchase_value(raw.get("action_values"))
+        spend          = float(raw.get("spend", 0))
+        impressions    = int(raw.get("impressions", 0))
+        clicks         = int(raw.get("clicks", 0))
+        row = {
+            "date":           raw.get("date_start"),
+            "account_id":     account_id,
+            "platform":       raw.get("publisher_platform", ""),
+            "impressions":    impressions,
+            "reach":          int(raw.get("reach", 0)),
+            "clicks":         clicks,
+            "ctr":            (clicks / impressions * 100) if impressions > 0 else 0,
+            "spend":          spend,
+            "cpc":            float(raw.get("cpc", 0)),
+            "view_content":   conversions["view_content"],
+            "add_to_cart":    conversions["add_to_cart"],
+            "purchase":       conversions["purchase"],
+            "purchase_value": purchase_value,
+            "roas":           round(purchase_value / spend, 4) if spend > 0 else 0,
+        }
+        if row["date"]:
+            rows.append(row)
+    return rows
+
+
 def parse_all(results_by_level, account_id):
     all_rows = []
 

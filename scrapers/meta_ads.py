@@ -153,12 +153,28 @@ def fetch_products(account_id, token, date_from, date_to):
     return rows
 
 
+def fetch_placements(account_id, token, date_from, date_to):
+    """Fetch de métricas por publisher_platform (Instagram, Facebook, etc.)."""
+    print(f"  Fetching placements...")
+    rows = _fetch_insights(
+        account_id, token,
+        level="account",
+        date_from=date_from,
+        date_to=date_to,
+        breakdowns="publisher_platform",
+    )
+    print(f"  placements: {len(rows)} registros")
+    return rows
+
+
 def fetch_all(account_id, token, date_from, date_to,
-              levels=("ad", "product")):
+              levels=("ad", "product", "placement")):
     """Fetch de los niveles solicitados."""
     results = {}
     if "ad" in levels:
         results["ad"] = fetch_ads(account_id, token, date_from, date_to)
     if "product" in levels:
         results["product"] = fetch_products(account_id, token, date_from, date_to)
+    if "placement" in levels:
+        results["placement"] = fetch_placements(account_id, token, date_from, date_to)
     return results

@@ -19,8 +19,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scrapers.meta_ads import fetch_all
-from parsers.meta_ads_parser import parse_all
-from outputs.bigquery import write_metrics, enrich_product_urls
+from parsers.meta_ads_parser import parse_all, parse_placements
+from outputs.bigquery import write_metrics, enrich_product_urls, write_placements
 
 TOKEN      = os.environ.get("META_ACCESS_TOKEN", "")
 ACCOUNT_ID = os.environ.get("META_AD_ACCOUNT_ID", "1361105058247847")
@@ -29,7 +29,7 @@ yesterday  = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
 DATE_FROM  = os.environ.get("DATE_FROM", yesterday)
 DATE_TO    = os.environ.get("DATE_TO", yesterday)
 
-LEVELS = ("campaign", "ad", "product")
+LEVELS = ("ad", "product", "placement")
 
 
 def main():
@@ -48,8 +48,12 @@ def main():
     rows = parse_all(raw, ACCOUNT_ID)
     print(f"Total filas: {len(rows)}")
 
-    print("\n=== BigQuery ===")
+    print("\n=== BigQuery: métricas ===")
     write_metrics(rows, table_name="daily_metrics", date_from=DATE_FROM, date_to=DATE_TO)
+
+    print("\n=== BigQuery: placements ===")
+    placement_rows = parse_placements(raw.get("placement", []), ACCOUNT_ID)
+    write_placements(placement_rows, date_from=DATE_FROM, date_to=DATE_TO)
 
     print("\n=== Enriqueciendo product_url desde catálogo ===")
     enrich_product_urls(date_from=DATE_FROM, date_to=DATE_TO)
