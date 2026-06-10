@@ -137,7 +137,14 @@ def parse_all(results_by_level, account_id):
 
     for level, raw_rows in results_by_level.items():
         for raw in raw_rows:
-            product_id = raw.get("product_id") if level == "product" else None
+            if level == "product":
+                product_id = raw.get("product_id")
+                if not product_id:
+                    # Meta devuelve filas sin product_id en el breakdown (tráfico no atribuido).
+                    # Descartarlas: ya están cubiertas por las filas ad-level (product_id IS NULL).
+                    continue
+            else:
+                product_id = None
             row = parse_row(raw, account_id, product_id)
             if row["date"]:
                 all_rows.append(row)

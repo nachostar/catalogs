@@ -55,7 +55,7 @@ export async function queryMetrics(params: {
       campaign_name,
       adset_name,
       ad_name,
-      destination_url,
+      MAX(destination_url) AS destination_url,
       '' AS thumbnail_url,
       SUM(impressions)     AS impressions,
       SUM(reach)           AS reach,
@@ -70,7 +70,7 @@ export async function queryMetrics(params: {
       SAFE_DIVIDE(SUM(purchase_value), NULLIF(SUM(spend), 0)) AS roas
     FROM \`${PROJECT}.${DATASET}.daily_metrics\`
     WHERE ${where} AND product_id IS NULL
-    GROUP BY 1,2,3,4
+    GROUP BY campaign_name, adset_name, ad_name
     ORDER BY spend DESC
   `
 

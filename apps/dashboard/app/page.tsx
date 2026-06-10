@@ -142,6 +142,7 @@ export default function Dashboard() {
       price:        cat?.price || null,
       availability: cat?.availability || '',
       product_url:  row.product_url || cat?.link || '',
+      brand:        cat?.brand || '',
     }
   })
 
@@ -172,6 +173,24 @@ export default function Dashboard() {
     totalPurch: ps.reduce((s,r) => s + (Number(r.purchase)||0), 0),
     totalRev:   ps.reduce((s,r) => s + (Number(r.purchase_value)||0), 0),
   }
+
+  const brandMap = new Map<string, any>()
+  for (const row of enriched) {
+    const b = row.brand || 'Sin marca'
+    if (!brandMap.has(b)) brandMap.set(b, { brand: b, products: 0, spend: 0, impressions: 0, clicks: 0, view_content: 0, add_to_cart: 0, purchase: 0, purchase_value: 0 })
+    const e = brandMap.get(b)!
+    e.products++;
+    e.spend          += Number(row.spend) || 0
+    e.impressions    += Number(row.impressions) || 0
+    e.clicks         += Number(row.clicks) || 0
+    e.view_content   += Number(row.view_content) || 0
+    e.add_to_cart    += Number(row.add_to_cart) || 0
+    e.purchase       += Number(row.purchase) || 0
+    e.purchase_value += Number(row.purchase_value) || 0
+  }
+  const brandRows = Array.from(brandMap.values())
+    .map(b => ({ ...b, ctr: b.impressions > 0 ? (b.clicks / b.impressions) * 100 : 0, roas: b.spend > 0 ? b.purchase_value / b.spend : 0 }))
+    .sort((a, b) => b.spend - a.spend)
 
   const CHART_METRICS: ChartMetric[] = ['spend', 'impressions', 'clicks', 'purchase', 'roas']
 
@@ -365,6 +384,49 @@ export default function Dashboard() {
                 </tbody>
               </table>
             </div>
+
+            {/* Tabla por marca */}
+            {brandRows.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+                <div className="px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700">
+                  Por marca <span className="text-xs font-normal text-gray-400 ml-1">({brandRows.length})</span>
+                </div>
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Marca</th>
+                      <th className="px-4 py-3 text-right">Productos</th>
+                      <th className="px-4 py-3 text-right">Gasto</th>
+                      <th className="px-4 py-3 text-right">Impresiones</th>
+                      <th className="px-4 py-3 text-right">Clics</th>
+                      <th className="px-4 py-3 text-right">CTR</th>
+                      <th className="px-4 py-3 text-right">👁 View</th>
+                      <th className="px-4 py-3 text-right">🛒 Cart</th>
+                      <th className="px-4 py-3 text-right">✅ Compras</th>
+                      <th className="px-4 py-3 text-right">Revenue</th>
+                      <th className="px-4 py-3 text-right">ROAS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {brandRows.map((b, i) => (
+                      <tr key={i} className="hover:bg-gray-50 transition">
+                        <td className="px-4 py-2.5 font-medium text-gray-800">{b.brand}</td>
+                        <td className="px-4 py-2.5 text-right text-gray-500">{b.products}</td>
+                        <td className="px-4 py-2.5 text-right font-medium">${b.spend.toLocaleString('es-CL',{maximumFractionDigits:0})}</td>
+                        <td className="px-4 py-2.5 text-right text-gray-600">{b.impressions.toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-right text-gray-600">{b.clicks.toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-right text-gray-500">{b.ctr.toFixed(2)}%</td>
+                        <td className="px-4 py-2.5 text-right text-blue-500">{b.view_content.toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-right text-yellow-500">{b.add_to_cart.toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-right text-green-600 font-medium">{b.purchase.toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-right">${b.purchase_value.toLocaleString('es-CL',{maximumFractionDigits:0})}</td>
+                        <td className="px-4 py-2.5 text-right font-semibold text-blue-600">{b.roas.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             </>
           )
         ) : activeTab === 'ads' ? (
