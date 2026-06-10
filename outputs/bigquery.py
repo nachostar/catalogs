@@ -131,16 +131,16 @@ def write_placements(rows, table_name="placement_metrics", date_from=None, date_
 
     total = 0
     for date_str, date_rows in sorted(by_date.items()):
-        partition_id = date_str.replace("-", "")
+        client.query(f"DELETE FROM `{table_id}` WHERE date = '{date_str}'").result()
         job_config = bigquery.LoadJobConfig(
             schema=SCHEMA_PLACEMENTS,
-            write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
             source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
         )
         ndjson = "\n".join(_json.dumps(r, default=str) for r in date_rows)
         job = client.load_table_from_file(
             io.BytesIO(ndjson.encode()),
-            f"{table_id}${partition_id}",
+            table_id,
             job_config=job_config,
         )
         job.result()
