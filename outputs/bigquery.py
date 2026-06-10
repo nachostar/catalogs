@@ -295,45 +295,42 @@ def enrich_product_urls(date_from=None, date_to=None, metrics_table="daily_metri
 
 def write_metrics(rows, table_name="daily_metrics", date_from=None, date_to=None):
     """
-    Inserta filas en BigQuery usando load jobs por partición (no streaming).
-    WRITE_TRUNCATE por partición evita duplicados sin necesitar DELETE.
-    Funciona para carga diaria y masiva.
+    Inserta filas en BigQuery por fecha.
+    Estrategia: DELETE explícito por fecha + WRITE_APPEND.
+    El WRITE_TRUNCATE con decorator de partición no es confiable cuando hay
+    datos previos de streaming buffer o tabla no particionada correctamente.
     """
     if not rows:
         print("No hay filas para insertar en BigQuery.")
         return
 
     import json as _json
+    import io
     from collections import defaultdict
 
     client = get_client()
     ensure_dataset(client)
     table_id = ensure_table(client, table_name, SCHEMA_DAILY_METRICS)
 
-    # Agrupar filas por fecha para escribir partición por partición
     by_date = defaultdict(list)
     for row in rows:
         by_date[row["date"]].append(row)
 
     total_inserted = 0
     for date_str, date_rows in sorted(by_date.items()):
-        partition_id = date_str.replace("-", "")
-        partition_table = f"{table_id}${partition_id}"
+        # Borrar filas existentes para esa fecha antes de insertar
+        delete_query = f"DELETE FROM `{table_id}` WHERE date = '{date_str}'"
+        client.query(delete_query).result()
 
         job_config = bigquery.LoadJobConfig(
             schema=SCHEMA_DAILY_METRICS,
-            write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
             source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
-            schema_update_options=[
-                bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION,
-            ],
         )
-
         ndjson = "\n".join(_json.dumps(r, default=str) for r in date_rows)
-        import io
         job = client.load_table_from_file(
             io.BytesIO(ndjson.encode()),
-            partition_table,
+            table_id,
             job_config=job_config,
         )
         job.result()
