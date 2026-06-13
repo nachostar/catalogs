@@ -1,0 +1,41 @@
+name: Vetar productos con mal CTR
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_ctr:
+        description: "CTR máximo permitido (%)"
+        required: false
+        default: "6.0"
+      min_impressions:
+        description: "Impresiones mínimas para calificar"
+        required: false
+        default: "50"
+      days:
+        description: "Ventana de días a evaluar"
+        required: false
+        default: "7"
+      dry_run:
+        description: "Solo mostrar, sin insertar (true/false)"
+        required: false
+        default: "false"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install google-cloud-bigquery
+      - name: Vetar productos con mal CTR
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GCP_PROJECT: "quetri"
+          MAX_CTR: ${{ github.event.inputs.max_ctr }}
+          MIN_IMPRESSIONS: ${{ github.event.inputs.min_impressions }}
+          DAYS: ${{ github.event.inputs.days }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          VETOED_BY: "auto-ctr"
+        run: python scripts/veto_bad_ctr.py
