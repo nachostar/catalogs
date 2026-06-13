@@ -26,8 +26,8 @@ TOKEN      = os.environ.get("META_ACCESS_TOKEN", "")
 ACCOUNT_ID = os.environ.get("META_AD_ACCOUNT_ID", "1361105058247847")
 
 yesterday  = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-DATE_FROM  = os.environ.get("DATE_FROM", yesterday)
-DATE_TO    = os.environ.get("DATE_TO", yesterday)
+DATE_FROM  = os.environ.get("DATE_FROM") or yesterday
+DATE_TO    = os.environ.get("DATE_TO")   or yesterday
 
 LEVELS = ("ad", "product", "placement")
 
