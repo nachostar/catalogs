@@ -70,7 +70,6 @@ def upload_to_gcs(img: Image.Image, blob_name: str, credentials_json: str) -> st
     img.save(buf, format="JPEG", quality=90)
     buf.seek(0)
     blob.upload_from_file(buf, content_type="image/jpeg")
-    blob.make_public()
 
     return f"https://storage.googleapis.com/{GCS_BUCKET}/{blob_name}"
 
