@@ -45,7 +45,9 @@ const FILTER_PARAMS: Record<string, string> = {
 
 export default function GA4Section({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }) {
   const [properties, setProperties]   = useState<Property[]>([])
-  const [selectedProp, setSelectedProp] = useState('')
+  const [selectedProp, setSelectedProp] = useState(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('ga4_property') || '' : ''
+  )
   const [trend, setTrend]             = useState<DayRow[]>([])
   const [landings, setLandings]       = useState<LandingRow[]>([])
   const [events, setEvents]           = useState<EventRow[]>([])
@@ -57,10 +59,20 @@ export default function GA4Section({ dateFrom, dateTo }: { dateFrom: string; dat
 
   useEffect(() => {
     fetch('/api/ga4/properties').then(r => r.json()).then(d => {
-      if (Array.isArray(d)) { setProperties(d); if (d.length > 0) setSelectedProp(d[0].propertyId) }
-      else setError(d.error || 'Error')
+      if (Array.isArray(d)) {
+        setProperties(d)
+        // Solo setear el primero si no hay nada guardado en localStorage
+        if (d.length > 0 && !localStorage.getItem('ga4_property')) {
+          setSelectedProp(d[0].propertyId)
+        }
+      } else setError(d.error || 'Error')
     })
   }, [])
+
+  // Guardar selección en localStorage cuando cambia
+  useEffect(() => {
+    if (selectedProp) localStorage.setItem('ga4_property', selectedProp)
+  }, [selectedProp])
 
   // Cargar valores de filtros cuando cambia propiedad
   useEffect(() => {
