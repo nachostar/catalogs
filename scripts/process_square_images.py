@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from PIL import Image
+from PIL import Image, ImageOps
 from google.cloud import storage
 from google.oauth2.service_account import Credentials
 
@@ -48,13 +48,8 @@ def fetch_image(url: str) -> Image.Image:
 
 
 def crop_square(img: Image.Image, size: int = TARGET_SIZE) -> Image.Image:
-    """Recorta la imagen al cuadrado más grande posible centrado, luego redimensiona."""
-    w, h = img.size
-    side = min(w, h)
-    left   = (w - side) // 2
-    top    = (h - side) // 2
-    img = img.crop((left, top, left + side, top + side))
-    return img.resize((size, size), Image.LANCZOS)
+    """Recorta la imagen al cuadrado centrado exacto y redimensiona."""
+    return ImageOps.fit(img, (size, size), Image.LANCZOS, centering=(0.5, 0.5))
 
 
 def upload_to_gcs(img: Image.Image, blob_name: str, credentials_json: str) -> str:
