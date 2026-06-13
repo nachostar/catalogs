@@ -136,12 +136,16 @@ def parse_all(results_by_level, account_id):
     all_rows = []
 
     for level, raw_rows in results_by_level.items():
+        if level == "placement":
+            # Los placements van a placement_metrics vía parse_placements/write_placements.
+            # Incluirlos aquí duplicaría el gasto en daily_metrics (product_id IS NULL).
+            continue
         for raw in raw_rows:
             if level == "product":
                 product_id = raw.get("product_id")
                 if not product_id:
                     # Meta devuelve filas sin product_id en el breakdown (tráfico no atribuido).
-                    # Descartarlas: ya están cubiertas por las filas ad-level (product_id IS NULL).
+                    # Descartarlas: ya están cubiertas por las filas ad-level.
                     continue
             else:
                 product_id = None
