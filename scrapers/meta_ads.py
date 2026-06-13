@@ -152,33 +152,45 @@ def fetch_ads(account_id, token, date_from, date_to):
 def fetch_products(account_id, token, date_from, date_to):
     """Fetch a nivel de ad con breakdown por product_id."""
     print(f"  Fetching product breakdown...")
-    rows = _fetch_insights(account_id, token, level="ad",
-                           date_from=date_from, date_to=date_to,
-                           breakdowns="product_id")
-    print(f"  products: {len(rows)} registros")
-    return rows
+    try:
+        rows = _fetch_insights(account_id, token, level="ad",
+                               date_from=date_from, date_to=date_to,
+                               breakdowns="product_id")
+        print(f"  products: {len(rows)} registros")
+        return rows
+    except Exception as e:
+        print(f"  [warning] product breakdown no disponible: {e}")
+        return []
 
 
 def fetch_placements(account_id, token, date_from, date_to):
     """Fetch de métricas por publisher_platform y por age, con detalle de campaña/adset/ad."""
     print(f"  Fetching placements by platform...")
-    by_platform = _fetch_insights(
-        account_id, token, level="ad",
-        date_from=date_from, date_to=date_to,
-        breakdowns="publisher_platform",
-    )
-    for r in by_platform:
-        r["breakdown_type"] = "platform"
+    try:
+        by_platform = _fetch_insights(
+            account_id, token, level="ad",
+            date_from=date_from, date_to=date_to,
+            breakdowns="publisher_platform",
+        )
+        for r in by_platform:
+            r["breakdown_type"] = "platform"
+    except Exception as e:
+        print(f"  [warning] placements by platform no disponible: {e}")
+        by_platform = []
 
     print(f"  Fetching placements by age...")
-    by_age = _fetch_insights(
-        account_id, token, level="ad",
-        date_from=date_from, date_to=date_to,
-        breakdowns="age",
-    )
-    for r in by_age:
-        r["breakdown_type"] = "age"
-        r["publisher_platform"] = ""
+    try:
+        by_age = _fetch_insights(
+            account_id, token, level="ad",
+            date_from=date_from, date_to=date_to,
+            breakdowns="age",
+        )
+        for r in by_age:
+            r["breakdown_type"] = "age"
+            r["publisher_platform"] = ""
+    except Exception as e:
+        print(f"  [warning] placements by age no disponible: {e}")
+        by_age = []
 
     rows = by_platform + by_age
     print(f"  placements: {len(rows)} registros")
