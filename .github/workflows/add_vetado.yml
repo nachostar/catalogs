@@ -1,0 +1,29 @@
+name: Agregar producto vetado
+
+on:
+  workflow_dispatch:
+    inputs:
+      family_id:
+        description: "Family ID del producto a vetar"
+        required: true
+      reason:
+        description: "Razón"
+        required: false
+        default: "desactivado manualmente"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install google-cloud-bigquery
+      - name: Agregar a product_vetados
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GCP_PROJECT: "quetri"
+          FAMILY_ID: ${{ github.event.inputs.family_id }}
+          REASON: ${{ github.event.inputs.reason }}
+        run: python scripts/add_vetado.py
